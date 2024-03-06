@@ -1,0 +1,10 @@
+---
+# roles/systemd_service/handlers/main.yml
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Update GRUB
+  command: update-grub
+  become: yes

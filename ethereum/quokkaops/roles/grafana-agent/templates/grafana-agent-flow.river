@@ -1,0 +1,42 @@
+logging {
+  level = "warn"
+}
+
+prometheus.remote_write "primary" {
+ endpoint {
+  url = "https://{{ metrics_host }}/api/v1/push"
+  basic_auth {
+   username = "{{ metrics_user }}"
+   password = "{{ metrics_password }}"
+  }
+
+ }
+}
+
+prometheus.exporter.unix "default" {
+  include_exporter_metrics = true
+  disable_collectors       = ["mdadm"]
+}
+
+prometheus.scrape "default" {
+  targets = concat(
+      prometheus.exporter.unix.default.targets,
+      [{
+          // Self-collect metrics
+          job         = "agent",
+          __address__ = "127.0.0.1:12345",
+      },
+      {
+          job = "jvb",
+          jitsi_region = "{{ jitsi_region }}",
+          jitsi_bridge = "{{ ansible_hostname }}",
+          __address__ = "127.0.0.1:9888",
+      },
+      ],
+  )
+
+  forward_to = [
+    prometheus.remote_write.primary.receiver,
+  ]
+}
+

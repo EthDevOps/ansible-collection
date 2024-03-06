@@ -1,0 +1,11 @@
+[Unit]
+Description=Enable Mac Server Mode
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/setpci -s 00:1f.0 0xa4.b=0
+Type=oneshot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=default.target

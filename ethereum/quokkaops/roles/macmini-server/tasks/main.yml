@@ -1,0 +1,27 @@
+---
+- name: Copy systemd service file
+  copy:
+    src: servermode.service
+    dest: /etc/systemd/system/server-mode.service
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - Reload systemd
+
+- name: Enable and start the service
+  systemd:
+    name: server-mode
+    state: started
+    enabled: yes
+
+- name: Set kernel parameters in /etc/default/grub
+  lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX='
+    line: 'GRUB_CMDLINE_LINUX="intel_iommu=on iommu=pt"'
+    backup: yes
+  notify:
+    - Update GRUB
+
+

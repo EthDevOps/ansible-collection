@@ -1,0 +1,37 @@
+- name: get jitsi gpg key
+  ansible.builtin.get_url:
+    url: https://download.jitsi.org/jitsi-key.gpg.key
+    dest: /etc/apt/keyrings/jitsi.asc
+
+- name: add jitsi repo
+  register: add_jitsi_repo
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/jitsi.asc] https://download.jitsi.org stable/"
+
+- name: Run apt-get update
+  when: add_jitsi_repo.changed
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Install Jitsi Videobridge
+  ansible.builtin.apt:
+    name: "jitsi-videobridge2={{ jitsi_jvb_version }}"
+    allow_downgrade: true
+
+- name: Generate jvb config
+  notify: jvb-restart
+  ansible.builtin.template:
+    src: jvb.conf
+    dest: /etc/jitsi/videobridge/jvb.conf
+
+- name: remove sip config
+  notify: jvb-restart
+  ansible.builtin.file:
+    path: /etc/jitsi/videobridge/sip-communicator.properties
+    state: absent
+
+- name: make sure jvb service is enabled
+  ansible.builtin.systemd:
+    name: jitsi-videobridge2
+    state: started
+    enabled: yes

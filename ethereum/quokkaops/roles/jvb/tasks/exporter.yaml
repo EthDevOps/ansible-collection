@@ -1,0 +1,27 @@
+- name: download jvb exporter
+  ansible.builtin.get_url:
+    url: https://github.com/systemli/prometheus-jitsi-meet-exporter/releases/download/{{exporter_version}}/prometheus-jitsi-meet-exporter_{{exporter_version}}_linux_amd64.tar.gz
+    dest: /tmp/jitsi-exporter.tar.gz
+
+-  name: Unpack the exporter
+   ansible.builtin.unarchive:
+    src: /tmp/jitsi-exporter.tar.gz
+    dest: /usr/local/bin
+    remote_src: yes 
+
+- name: copy jitsi export service
+  copy:
+    src: jitsi-exporter.service
+    dest: /etc/systemd/system/jitsi-exporter.service
+  register: exporterservice
+
+-  name: Reload systemd
+   when: exporterservice.changed
+   ansible.builtin.systemd:
+     daemon_reload: yes
+
+- name: make sure jitsi exporter service is enabled
+  ansible.builtin.systemd:
+    name: jitsi-exporter
+    state: started
+    enabled: yes

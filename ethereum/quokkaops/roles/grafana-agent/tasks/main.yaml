@@ -1,0 +1,25 @@
+- name: Get grafana apt key
+  ansible.builtin.get_url:
+    url: https://apt.grafana.com/gpg.key
+    dest: /etc/apt/keyrings/grafana.asc
+
+- name: add grafana repo
+  register: add_grafana_repo
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main"
+
+- name: Run apt-get update
+  when: add_grafana_repo.changed
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Install Grafana Agent Flow
+  ansible.builtin.apt:
+    name: grafana-agent-flow
+
+- name: Generate Grafana config file
+  notify: restart_agent
+  template:
+    src: grafana-agent-flow.river
+    dest: /etc/grafana-agent-flow.river 
+

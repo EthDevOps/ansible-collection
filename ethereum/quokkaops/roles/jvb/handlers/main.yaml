@@ -1,0 +1,4 @@
+- name: jvb-restart
+  ansible.builtin.systemd:
+    name: jitsi-videobridge2
+    state: restarted

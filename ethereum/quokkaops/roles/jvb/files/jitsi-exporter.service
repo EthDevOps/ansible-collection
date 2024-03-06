@@ -1,0 +1,13 @@
+[Unit]
+Description=Jitsi Prometheus Exporter
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/prometheus-jitsi-meet-exporter
+Restart=always
+RestartSec=5
+StandardOutput=syslog
+StandardError=syslog
+
+[Install]
+WantedBy=multi-user.target
