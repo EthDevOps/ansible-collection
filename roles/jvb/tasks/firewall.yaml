@@ -8,11 +8,17 @@
     port: '22'
     proto: tcp
 
-- name: Allow jvb/udp
+- name: Allow jvb streaming/udp
   ufw:
     rule: allow
     port: '10000'
     proto: udp
+
+- name: Allow jvb websockets/tcp
+  ufw:
+    rule: allow
+    port: '9090'
+    proto: tcp
 
 - name: Enable UFW
   ufw:
