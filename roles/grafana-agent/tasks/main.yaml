@@ -23,3 +23,8 @@
     src: grafana-agent-flow.river
     dest: /etc/grafana-agent-flow.river 
 
+- name: make sure agent service is enabled
+  ansible.builtin.systemd:
+    name: grafana-agent-flow
+    state: started
+    enabled: yes
