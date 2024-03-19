@@ -6,7 +6,7 @@
 - name: add grafana repo
   register: add_grafana_repo
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main"
+    repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
 
 - name: Run apt-get update
   when: add_grafana_repo.changed
