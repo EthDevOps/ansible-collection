@@ -18,6 +18,7 @@ prometheus.exporter.unix "default" {
 }
 
 prometheus.scrape "default" {
+  scrape_interval = "15s"
   targets = concat(
       prometheus.exporter.unix.default.targets,
       [{
