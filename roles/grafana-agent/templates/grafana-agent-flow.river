@@ -63,8 +63,8 @@ loki.write "endpoint" {
       username = "{{ metrics_user }}"
       password = "{{ metrics_password }}"
     }
-    external_labels = {
-      hostname = "{{ ansible_hostname }}"
-    }
+  }
+  external_labels = {
+    "hostname" = "{{ ansible_hostname }}",
   }
 }
