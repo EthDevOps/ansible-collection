@@ -40,3 +40,28 @@ prometheus.scrape "default" {
   ]
 }
 
+// Logs
+loki.relabel "journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+}
+
+loki.source.journal "read"  {
+  forward_to    = [loki.write.endpoint.receiver]
+  relabel_rules = loki.relabel.journal.rules
+  labels        = {component = "loki.source.journal"}
+}
+
+loki.write "endpoint" {
+  endpoint {
+    url ="https://{{logs_host}}/api/v1/push"
+    basic_auth {
+      username = "{{ metrics_user }}"
+      password = "{{ metrics_password }}"
+    }
+  }
+}
