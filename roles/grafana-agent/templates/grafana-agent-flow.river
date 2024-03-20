@@ -59,9 +59,12 @@ loki.source.journal "read"  {
 loki.write "endpoint" {
   endpoint {
     url ="https://{{logs_host}}/loki/api/v1/push"
-    //basic_auth {
-    //  username = "{{ metrics_user }}"
-    //  password = "{{ metrics_password }}"
-    //}
+    basic_auth {
+      username = "{{ metrics_user }}"
+      password = "{{ metrics_password }}"
+    }
+    external_labels = {
+      hostname = "{{ ansible_hostname }}"
+    }
   }
 }
