@@ -1,0 +1,11 @@
+# Patchman server
+server=https://{{ patchman_host }}/patchman
+
+# Options to curl
+curl_options="--insecure --connect-timeout 60 --max-time 300"
+
+# Space delimited tags to send
+tags="{{ tenant[0] }},{{ project }}"
+
+# Does the client output a report of the upload (e.g. for cronjob output)
+report=false
