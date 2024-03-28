@@ -5,7 +5,7 @@ server=https://{{ patchman_host }}/patchman
 curl_options="--insecure --connect-timeout 60 --max-time 300"
 
 # Space delimited tags to send
-tags="{{ tenants[0] }},{{ project }},{{ ansible_facts['environment'] }}"
+tags="{{ tenants[0] }},{{ project }},{{ hostvars[inventory_hostname]['environment'] }}"
 
 # Does the client output a report of the upload (e.g. for cronjob output)
 report=false
