@@ -26,12 +26,6 @@ prometheus.scrape "default" {
           job         = "agent",
           __address__ = "127.0.0.1:12345",
       },
-      {
-          job = "jvb",
-          jitsi_region = "{{ jitsi_region }}",
-          jitsi_bridge = "{{ ansible_hostname }}",
-          __address__ = "127.0.0.1:9888",
-      },
       ],
   )
 
@@ -39,6 +33,12 @@ prometheus.scrape "default" {
     prometheus.remote_write.primary.receiver,
   ]
 }
+
+// Additional configs
+{% for file in grafana_extra_configs %}
+{{ lookup('file', file) }}
+{% endfor %}
+
 
 // Logs
 loki.relabel "journal" {

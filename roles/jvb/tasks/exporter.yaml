@@ -25,3 +25,7 @@
     name: jitsi-exporter
     state: started
     enabled: yes
+
+- name: add the scrape to the grafana agent template
+  set_fact:
+    grafana_extra_configs: "{{ grafana_extra_configs }} + ['roles/jvb/files/grafana-jitsi.conf']"
