@@ -27,6 +27,14 @@
     state: started
     enabled: yes
 
-- name: add the scrape to the grafana agent template
-  set_fact:
-    grafana_extra_configs: "{{ grafana_extra_configs }} + ['roles/jvb/files/grafana-jitsi.conf']"
+- name: ensure grafana target dir exists
+  ansible.builtin.file:
+    path: /etc/grafana-targets.d
+    state: directory
+    mode: '0755'
+
+- name: add the scrape to grafana agent
+  ansible.builtin.template:
+    src: grafana-jitsi.yml.j2
+    dest: /etc/grafana-targets.d/jitsi.yml
+

@@ -35,10 +35,18 @@ prometheus.scrape "default" {
 }
 
 // Additional configs
-{% for file in grafana_extra_configs %}
-{{ lookup('file', file) }}
-{% endfor %}
+discovery.file "extras" {
+  files = ["/etc/grafana-targets.d/*.yml"]
+}
 
+prometheus.scrape "extra_files" {
+  scrape_interval = "15s"
+  targets = discovery.file.extras.targets
+
+  forward_to = [
+    prometheus.remote_write.primary.receiver,
+  ]
+}
 
 // Logs
 loki.relabel "journal" {
