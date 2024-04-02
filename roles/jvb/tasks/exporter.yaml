@@ -4,6 +4,7 @@
     dest: /tmp/jitsi-exporter.tar.gz
 
 -  name: Unpack the exporter
+   check_mode: no
    ansible.builtin.unarchive:
     src: /tmp/jitsi-exporter.tar.gz
     dest: /usr/local/bin
