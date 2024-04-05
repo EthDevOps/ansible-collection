@@ -18,6 +18,15 @@
     name: "jitsi-videobridge2={{ jitsi_jvb_version }}"
     allow_downgrade: true
 
+- name: Pin JVB
+  copy:
+    dest: /etc/apt/preferences.d/pinning
+    content: |
+      Package: jitsi-videobridge2
+      Pin: version {{ jitsi_jvb_version }}
+      Pin-Priority: 1001
+
+
 - name: Generate jvb config
   notify: jvb-restart
   ansible.builtin.template:
