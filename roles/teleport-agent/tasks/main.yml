@@ -2,6 +2,7 @@
   command: tctl tokens add --type=node --format=text 
   delegate_to: localhost
   register: tctl_output
+  become: false
 
 - name: Set Teleport token as fact
   set_fact:
