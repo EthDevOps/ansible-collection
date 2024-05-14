@@ -1,0 +1,32 @@
+
+version: v3
+teleport:
+  nodename: {{ ansible_hostname }}
+  data_dir: /var/lib/teleport
+  join_params:
+    token_name: {{ teleport_token }}
+    method: token
+  proxy_server: {{ teleport_cluster }}:443
+  log:
+    output: stderr
+    severity: INFO
+    format:
+      output: text
+  diag_addr: ""
+auth_service:
+  enabled: "no"
+ssh_service:
+  enabled: "yes"
+  labels:
+    role: {{ device_roles[0] }}
+    tenant: {{ tenants[0] }}
+    site: {{ sites[0] }}
+  commands:
+  - name: hostname
+    command: [hostname]
+    period: 1m0s
+proxy_service:
+  enabled: "no"
+  https_keypairs: []
+  https_keypairs_reload_interval: 0s
+  acme: {}

@@ -1,0 +1,43 @@
+- name: Generate Teleport join token on control node
+  command: tctl tokens add --type=node --format=text 
+  delegate_to: localhost
+  register: tctl_output
+
+- name: Set Teleport token as fact
+  set_fact:
+    teleport_token: "{{ tctl_output.stdout }}"
+
+- name: Make sure apt keyrings directory exists
+  file:
+    state: directory
+    path: /etc/apt/keyrings
+
+- name: Get teleport apt key
+  ansible.builtin.get_url:
+    url: https://apt.releases.teleport.dev/gpg
+    dest: /etc/apt/keyrings/teleport.asc
+
+- name: add Teleport repo
+  register: add_teleport_repo
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/teleport.asc] https://apt.releases.teleport.dev/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} {{ teleport_version }}"
+
+- name: Run apt-get update
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: install Teleport agent
+  apt:
+    name: teleport
+
+- name: generate teleport config
+  template:
+    src: teleport-config.yml.j2
+    dest: /etc/teleport.yaml
+
+- name: Enable and start Teleport agent
+  systemd:
+    name: teleport
+    enabled: true
+    state: started
+
