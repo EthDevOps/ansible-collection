@@ -16,7 +16,12 @@
 - name: Install Grafana Agent Flow
   ansible.builtin.apt:
     name: grafana-agent-flow
- 
+
+- name: create extra config dir
+  file:
+    state: directory
+    path: /etc/grafana-targets.d
+
 - name: Generate Grafana config file
   notify: restart_agent
   template:

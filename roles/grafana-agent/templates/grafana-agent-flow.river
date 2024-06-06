@@ -9,9 +9,6 @@ prometheus.remote_write "primary" {
    username = "{{ metrics_user }}"
    password = "{{ metrics_password }}"
   }
-  external_labels = {
-    "environment" = "{{ environment }}",
-  }
  }
 }
 
