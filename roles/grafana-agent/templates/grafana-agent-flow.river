@@ -119,3 +119,14 @@ loki.write "local" {
     url = "loki:3100/api/v1/push"
   }
 }
+
+discovery.docker "linux" {
+  host = "unix:///var/run/docker.sock"
+}
+
+loki.source.docker "default" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.docker.linux.targets
+  forward_to = [loki.write.endpoint.receiver]
+}
+
