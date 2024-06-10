@@ -10,10 +10,10 @@ prometheus.remote_write "primary" {
    password = "{{ metrics_password }}"
   }
   external_labels {
-    agent_hostname = "{{ ansible_hostname }}",
+    hostname = "{{ ansible_hostname }}",
     project = "{{ project }}",
     environment = "{{ environment }}",
-    tenant = "{{ tenants[0] }}"
+    tenant = "{{ tenants[0] }}",
 
   }
  }
@@ -96,5 +96,26 @@ loki.write "endpoint" {
   }
   external_labels = {
     "hostname" = "{{ ansible_hostname }}",
+    project = "{{ project }}",
+    environment = "{{ environment }}",
+    tenant = "{{ tenants[0] }}",
+  }
+}
+
+
+local.file_match "logs" {
+  path_targets = [
+    {__path__ = "/var/log/*.log"},
+  ]
+}
+
+loki.source.file "tmpfiles" {
+  targets    = local.file_match.logs.targets
+  forward_to = [loki.write.endpoint.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "loki:3100/api/v1/push"
   }
 }
