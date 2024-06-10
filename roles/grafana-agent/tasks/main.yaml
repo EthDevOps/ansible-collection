@@ -1,3 +1,5 @@
+
+
 - name: Get grafana apt key
   ansible.builtin.get_url:
     url: https://apt.grafana.com/gpg.key
@@ -28,8 +30,21 @@
     src: grafana-agent-flow.river
     dest: /etc/grafana-agent-flow.river 
 
+- name: Check if docker group exists
+  command: getent group docker
+  register: docker_group_check
+  ignore_errors: yes
+
+- name: Add user to docker group if group exists
+  user:
+    name: grafana-agent-flow
+    groups: docker
+    append: yes
+  when: docker_group_check.rc == 0
+
 - name: make sure agent service is enabled
   ansible.builtin.systemd:
     name: grafana-agent-flow
     state: started
     enabled: yes
+

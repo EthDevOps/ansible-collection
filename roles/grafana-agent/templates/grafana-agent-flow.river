@@ -9,14 +9,14 @@ prometheus.remote_write "primary" {
    username = "{{ metrics_user }}"
    password = "{{ metrics_password }}"
   }
-  external_labels {
+ }
+  external_labels = {
     hostname = "{{ inventory_hostname }}",
     project = "{{ project }}",
     environment = "{{ hostvars[inventory_hostname]['environment'] }}",
     tenant = "{{ tenants[0] }}",
  
   }
- }
 }
 
 prometheus.relabel "primary" {
