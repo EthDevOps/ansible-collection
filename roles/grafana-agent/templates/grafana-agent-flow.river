@@ -9,8 +9,30 @@ prometheus.remote_write "primary" {
    username = "{{ metrics_user }}"
    password = "{{ metrics_password }}"
   }
+  external_labels {
+    agent_hostname = "{{ ansible_hostname }}",
+    project = "{{ project }}",
+    environment = "{{ environment }}",
+    tenant = "{{ tenants[0] }}"
+
+  }
  }
 }
+
+prometheus.relabel "primary" {
+  forward_to = [
+    prometheus.remote_write.primary.receiver,
+  ]
+
+  rule {
+    action        = "replace"
+    source_labels = ["__name__"]
+    target_label  = "instance"
+    replacement = "{{ ansible_hostname }}"
+  }
+
+}
+
 
 prometheus.exporter.unix "default" {
   include_exporter_metrics = true
@@ -30,7 +52,7 @@ prometheus.scrape "default" {
   )
 
   forward_to = [
-    prometheus.remote_write.primary.receiver,
+    prometheus.relabel.primary.receiver,
   ]
 }
 
@@ -44,7 +66,7 @@ prometheus.scrape "extra_files" {
   targets = discovery.file.extras.targets
 
   forward_to = [
-    prometheus.remote_write.primary.receiver,
+    prometheus.relabel.primary.receiver,
   ]
 }
 
