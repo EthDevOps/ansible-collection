@@ -1,4 +1,7 @@
-
+- name: make sure key dir exists
+  file:
+    state: directory
+    path: /etc/apt/keyrings
 
 - name: Get grafana apt key
   ansible.builtin.get_url:
