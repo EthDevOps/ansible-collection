@@ -10,11 +10,11 @@ prometheus.remote_write "primary" {
    password = "{{ metrics_password }}"
   }
   external_labels {
-    hostname = "{{ ansible_hostname }}",
+    hostname = "{{ inventory_hostname }}",
     project = "{{ project }}",
-    environment = "{{ environment }}",
+    environment = "{{ hostvars[inventory_hostname]['environment']" }}",
     tenant = "{{ tenants[0] }}",
-
+ 
   }
  }
 }
@@ -95,9 +95,9 @@ loki.write "endpoint" {
     }
   }
   external_labels = {
-    "hostname" = "{{ ansible_hostname }}",
+    hostname = "{{ inventory_hostname }}",
     project = "{{ project }}",
-    environment = "{{ environment }}",
+    environment = "{{ hostvars[inventory_hostname]['environment']" }}",
     tenant = "{{ tenants[0] }}",
   }
 }
