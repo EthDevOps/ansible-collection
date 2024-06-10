@@ -12,7 +12,7 @@ prometheus.remote_write "primary" {
   external_labels {
     hostname = "{{ inventory_hostname }}",
     project = "{{ project }}",
-    environment = "{{ hostvars[inventory_hostname]['environment']" }}",
+    environment = "{{ hostvars[inventory_hostname]['environment'] }}",
     tenant = "{{ tenants[0] }}",
  
   }
@@ -97,7 +97,7 @@ loki.write "endpoint" {
   external_labels = {
     hostname = "{{ inventory_hostname }}",
     project = "{{ project }}",
-    environment = "{{ hostvars[inventory_hostname]['environment']" }}",
+    environment = "{{ hostvars[inventory_hostname]['environment'] }}",
     tenant = "{{ tenants[0] }}",
   }
 }
