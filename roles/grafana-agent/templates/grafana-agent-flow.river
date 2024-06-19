@@ -103,6 +103,21 @@ loki.write "endpoint" {
 }
 
 
+loki.source.syslog "local" {
+  listener {
+    address  = "{{ ansible_default_ipv4.address }}:514"
+    labels   = { component = "loki.source.syslog", protocol = "tcp" }
+  }
+
+  listener {
+    address  = "{{ ansible_default_ipv4.address }}:514"
+    protocol = "udp"
+    labels   = { component = "loki.source.syslog", protocol = "udp"}
+  }
+
+  forward_to = [loki.write.endpoint.receiver]
+}
+
 local.file_match "logs" {
   path_targets = [
     {__path__ = "/var/log/*.log"},
@@ -112,12 +127,6 @@ local.file_match "logs" {
 loki.source.file "tmpfiles" {
   targets    = local.file_match.logs.targets
   forward_to = [loki.write.endpoint.receiver]
-}
-
-loki.write "local" {
-  endpoint {
-    url = "loki:3100/api/v1/push"
-  }
 }
 
 discovery.docker "linux" {
