@@ -102,6 +102,7 @@ loki.write "endpoint" {
   }
 }
 
+{% if enable_syslog_receiver %}
 
 loki.source.syslog "local" {
   listener {
@@ -117,6 +118,8 @@ loki.source.syslog "local" {
 
   forward_to = [loki.write.endpoint.receiver]
 }
+
+{% endif %}
 
 local.file_match "logs" {
   path_targets = [
