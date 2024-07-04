@@ -3,6 +3,11 @@
     src: motd.j2
     dest: /etc/motd
 
+- name: make sure keyring dir exists
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+
 - name: Get openbytes apt key
   ansible.builtin.get_url:
     url: https://repo.openbytes.ie/openbytes.gpg
