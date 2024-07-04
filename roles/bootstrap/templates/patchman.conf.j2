@@ -1,6 +1,6 @@
 # Patchman server
 server=https://{{ patchman_host }}/patchman
-
+hostname="{{ inventory_hostname }}"
 # Options to curl
 curl_options="--insecure --connect-timeout 60 --max-time 300"
 
