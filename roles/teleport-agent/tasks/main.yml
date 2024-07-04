@@ -1,9 +1,3 @@
-- name: Generate Teleport join token on control node
-  command: tctl tokens add --type=node --format=text 
-  delegate_to: localhost
-  register: tctl_output
-  become: false
-
 - name: Set Teleport token as fact
   set_fact:
     teleport_token: "{{ tctl_output.stdout }}"
@@ -28,8 +22,18 @@
     update_cache: yes
 
 - name: install Teleport agent
+  register: install_teleport
   apt:
     name: teleport
+
+
+- name: Generate Teleport join token on control node
+  when: install_teleport.changed
+  command: tctl tokens add --type=node --format=text 
+  delegate_to: localhost
+  register: tctl_output
+  become: false
+
 
 - name: generate teleport config
   template:
