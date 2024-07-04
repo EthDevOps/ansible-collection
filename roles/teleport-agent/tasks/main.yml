@@ -22,9 +22,7 @@
   apt:
     name: teleport
 
-
 - name: Generate Teleport join token on control node
-  when: install_teleport.changed
   command: tctl tokens add --type=node --format=text 
   delegate_to: localhost
   register: tctl_output
