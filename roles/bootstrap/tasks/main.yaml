@@ -1,44 +1,5 @@
-- name: Deploy MotD
-  ansible.builtin.template:
-    src: motd.j2
-    dest: /etc/motd
+- name: Setup basics
+  import_tasks: basics.yaml
 
-- name: make sure keyring dir exists
-  file:
-    path: /etc/apt/keyrings
-    state: directory
-
-- name: Get openbytes apt key
-  ansible.builtin.get_url:
-    url: https://repo.openbytes.ie/openbytes.gpg
-    dest: /etc/apt/keyrings/openbytes.gpg
-
-- name: add openbytes repo
-  register: add_openbytes_repo
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/openbytes.gpg] https://repo.openbytes.ie/patchman/debian bookworm main"
-
-- name: Run apt-get update
-  when: add_openbytes_repo.changed
-  ansible.builtin.apt:
-    update_cache: yes
-
-- name: install PatchMan client
-  ansible.builtin.apt:
-    name: patchman-client
-
-- name: Create patchman client config
-  ansible.builtin.template:
-    src: patchman.conf.j2
-    dest: /etc/patchman/patchman-client.conf
-
-- name: Add patchman as a cronjob
-  ansible.builtin.cron:
-    name: "daily run of patchman"
-    user: "root"  # replace with desired user
-    minute: "0"
-    hour: "1"
-    job: "/usr/sbin/patchman-client"
-
-- name: Initial run of patchman-client
-  ansible.builtin.shell: "/usr/sbin/patchman-client"
+- name: Setup Patchman
+  import_tasks: deploy_patchman.yaml
