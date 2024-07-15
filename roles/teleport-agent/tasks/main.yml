@@ -33,6 +33,7 @@
     teleport_token: "{{ tctl_output.stdout }}"
 
 - name: generate teleport config
+  notify: reload teleport
   template:
     src: teleport-config.yml.j2
     dest: /etc/teleport.yaml
@@ -42,4 +43,5 @@
     name: teleport
     enabled: true
     state: started
+
 
