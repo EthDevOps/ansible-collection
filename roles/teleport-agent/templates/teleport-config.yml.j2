@@ -17,6 +17,9 @@ auth_service:
   enabled: "no"
 ssh_service:
   enabled: "yes"
+  pam:
+    enabled: "yes"
+    service_name: "sshd"
   labels:
     role: {{ device_roles[0] }}
     tenant: {{ tenants[0] }}
