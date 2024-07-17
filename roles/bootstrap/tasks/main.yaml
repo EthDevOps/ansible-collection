@@ -3,3 +3,9 @@
 
 - name: Setup Patchman
   import_tasks: deploy_patchman.yaml
+
+- name: Setup User
+  import_tasks: user.yaml
+
+- name: Setup SSHd
+  import_tasks: ssh.yaml

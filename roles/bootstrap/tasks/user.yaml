@@ -1,0 +1,21 @@
+- name: Ensure the default user is present
+  ansible.builtin.user:
+    name: "{{ bootstrap_default_user }}"
+    state: present
+    shell: /bin/bash
+    create_home: yes
+
+- name: Allow default user to have passwordless sudo
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    state: present
+    regexp: "^%{{ bootstrap_default_user }}"
+    line: "{{ bootstrap_default_user }} ALL=(ALL) NOPASSWD: ALL"
+    validate: visudo -cf %s
+
+- name: Ensure the user is in the sudo group (if required)
+  ansible.builtin.user:
+    name: "{{ bootstrap_default_user }}"
+    groups: sudo
+    append: yes
+

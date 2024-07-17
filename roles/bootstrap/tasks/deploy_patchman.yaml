@@ -29,7 +29,7 @@
 
 - name: Add patchman as a cronjob
   ansible.builtin.cron:
-    name: "daily run of patchman"
+    name: "hourly run of patchman"
     user: "root"  # replace with desired user
     minute: "0"
     hour: "1"
