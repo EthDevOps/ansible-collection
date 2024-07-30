@@ -1,0 +1,44 @@
+# tasks/main.yml
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+  become: true
+
+- name: Install required packages
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  become: true
+  loop:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - gnupg
+    - lsb-release
+
+- name: Add Docker GPG key
+  ansible.builtin.apt_key:
+    url: "{{ docker_gpg_key }}"
+    state: present
+  become: true
+
+- name: Add Docker repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64] {{ docker_repository }} {{ ansible_distribution_release }} stable"
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Install Docker
+  ansible.builtin.apt:
+    name: "{{ docker_package }}"
+    state: present
+  become: true
+
+- name: Ensure Docker is running
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: yes
+  become: true
+

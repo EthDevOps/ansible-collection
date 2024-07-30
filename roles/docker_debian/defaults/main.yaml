@@ -1,0 +1,5 @@
+# defaults/main.yml
+docker_repository: "https://download.docker.com/linux/debian"
+docker_gpg_key: "https://download.docker.com/linux/debian/gpg"
+docker_package: "docker-ce"
+
