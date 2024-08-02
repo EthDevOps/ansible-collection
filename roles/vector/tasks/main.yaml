@@ -1,5 +1,5 @@
 - name: Install Vector.dev repository
-  command: bash -c "$(curl -L https://setup.vector.dev)"
+  shell: bash -c "$(curl -L https://setup.vector.dev)"
 
 - name: Install Vector.dev
   apt:
