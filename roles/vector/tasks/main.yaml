@@ -1,0 +1,23 @@
+- name: Install Vector.dev repository
+  command: bash -c "$(curl -L https://setup.vector.dev)"
+
+- name: Install Vector.dev
+  apt:
+    name: vector
+
+- name: Start and enable vector
+  ansible.builtin.systemd:
+    name: vector
+    state: started
+    enabled: true
+
+- name: Create config file
+  template:
+    src: vector.yaml.j2
+    dest: /etc/vector/vector.yaml
+  handler: Restart Vector
+
+  
+
+  
+

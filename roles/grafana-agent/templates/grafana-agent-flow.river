@@ -4,7 +4,7 @@ logging {
 
 prometheus.remote_write "primary" {
  endpoint {
-  url = "https://{{ metrics_host }}/api/v1/push"
+  url = "https://{{ metrics_host }}/api/v1/write"
   basic_auth {
    username = "{{ metrics_user }}"
    password = "{{ metrics_password }}"
