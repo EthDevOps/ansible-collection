@@ -11,6 +11,15 @@
     state: started
     enabled: true
 
+- name: Check if docker group exists
+  command: getent group docker
+  register: docker_group_check
+  ignore_errors: yes
+
+- name: Set fact if docker is installed
+  set_fact:
+    docker_installed: "{{ docker_group_check.rc == 0 }}"
+
 - name: Create config file
   template:
     src: vector.yaml.j2

@@ -13,11 +13,11 @@ sources:
   logs_journal:
     type: journald
 
-{{- if docker_installed }}
+{%- if docker_installed %}
   dockerlogs:
     logs_docker:
       type: docker_logs
-{{ end }}
+{% endif %}
 
 transforms:
   metrics_with_labels:
