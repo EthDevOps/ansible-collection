@@ -15,7 +15,7 @@
   template:
     src: vector.yaml.j2
     dest: /etc/vector/vector.yaml
-  handler: Restart Vector
+  notify: Restart Vector
 
   
 
