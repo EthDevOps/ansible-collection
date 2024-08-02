@@ -11,16 +11,15 @@ sources:
 
   logs_files:
     type: file
-      include:
-        - /var/log/**/*.log
+    include:
+      - /var/log/**/*.log
 
   logs_journal:
     type: journald
 
-{%- if docker_installed %}
-  dockerlogs:
-    logs_docker:
-      type: docker_logs
+{% if docker_installed %}
+  logs_docker:
+    type: docker_logs
 {% endif %}
 
 transforms:
@@ -30,11 +29,13 @@ transforms:
     source: |-
       .tags.hostname = "{{ inventory_hostname }}"
       .tags.environment = "{{ hostvars[inventory_hostname]['environment'] }}"
-      .tags.project: "{{ project }}"
-      .tags.tenant: "{{ tenants[0] }}"
+      .tags.project = "{{ project }}"
+      .tags.tenant = "{{ tenants[0] }}"
 
 sinks:
   quokka_victoria:
+    healthcheck:
+      enabled: false
     type: prometheus_remote_write
     inputs: ["metrics_with_labels"]
     endpoint: https://{{ metrics_host }}/api/v1/write
@@ -45,6 +46,11 @@ sinks:
 
   quokka_loki: 
     type: loki
+    healthcheck:
+      enabled: false
+    compression: snappy
+    encoding:
+      codec: logfmt
     inputs: ["logs_*"]
     endpoint: https://{{logs_host}}/loki/api/v1/push
     auth:
