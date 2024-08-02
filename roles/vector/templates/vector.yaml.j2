@@ -52,8 +52,8 @@ sinks:
       user: "{{ metrics_user }}"
       password: "{{ metrics_password }}"
     labels:
-      hostname: "{{ inventory_hostname }}",
-      project: "{{ project }}",
-      environment: "{{ hostvars[inventory_hostname]['environment'] }}",
-      tenant: "{{ tenants[0] }}",
+      hostname: "{{ inventory_hostname }}"
+      project: "{{ project }}"
+      environment: "{{ hostvars[inventory_hostname]['environment'] }}"
+      tenant: "{{ tenants[0] }}"
 
