@@ -8,11 +8,6 @@ sources:
     endpoints:
       - http://127.0.0.1:9100/metrics
 
-  logs_files:
-    type: file
-    include:
-      - /var/log/**/*.log
-
   logs_journal:
     type: journald
 

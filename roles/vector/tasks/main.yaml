@@ -20,6 +20,13 @@
   set_fact:
     docker_installed: "{{ docker_group_check.rc == 0 }}"
 
+- name: Add user to docker group if group exists
+  user:
+    name: vector
+    groups: docker
+    append: yes
+  when: docker_group_check.rc == 0
+
 - name: Create config file
   template:
     src: vector.yaml.j2
