@@ -3,8 +3,12 @@ api:
   enabled: true
 
 sources:
-  metrics_host:
-    type: host_metrics
+  metrics_node_exporter:
+    type: prometheus_scrape
+    endpoints:
+      - http://127.0.0.1:9100/metrics
+    instance_tag: {{ inventory_hostname }}:node
+
   logs_files:
     type: file
       include:
