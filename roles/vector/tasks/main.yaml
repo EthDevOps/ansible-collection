@@ -35,7 +35,7 @@
 
 - name: Switch vector to multi-config file mode
   ansible.builtin.replace:
-    path: /lib/systemd/system/vector.unit
+    path: /lib/systemd/system/vector.service
     regexp: '/usr/bin/vector\b'
     replace: '/usr/bin/vector --config /etc/vector/*.yaml'
   notify: 
