@@ -1,8 +1,13 @@
-- targets:
-  - 127.0.0.1:9888
-  labels:
-    job: "jvb"
-    jitsi_region: "{{ jitsi_region }}"
-    jitsi_bridge: "{{ ansible_hostname }}"
+sources:
+  jitsi_jvb:
+    type: prometheus_scrape
+    endpoints:
+      - http://127.0.0.1:9888/metrics
 
-  
+transform:
+  metrics_jitsi_jvb:
+    type: remap
+    inputs: ["jitsi_jvb"]
+    source: |-
+      .tags.jitsi_region = "{{ jitsi_region }}"
+

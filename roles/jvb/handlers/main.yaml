@@ -2,3 +2,8 @@
   ansible.builtin.systemd:
     name: jitsi-videobridge2
     state: restarted
+
+- name: vector-reload
+  ansible.builtin.systemd:
+    name: vector
+    state: reloaded

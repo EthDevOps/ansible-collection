@@ -27,14 +27,14 @@
     state: started
     enabled: yes
 
-- name: ensure grafana target dir exists
+- name: ensure vector config dir exists
   ansible.builtin.file:
-    path: /etc/grafana-targets.d
+    path: /etc/vector
     state: directory
-    mode: '0755'
 
 - name: add the scrape to grafana agent
   ansible.builtin.template:
-    src: grafana-jitsi.yml.j2
-    dest: /etc/grafana-targets.d/jitsi.yml
+    src: vector.yaml.j2
+    dest: /etc/vector/jitsi.yaml
+  notify: vector-reload
 
