@@ -33,7 +33,15 @@
     dest: /etc/vector/vector.yaml
   notify: Restart Vector
 
-  
+- name: Switch vector to multi-config file mode
+  ansible.builtin.replace:
+    path: /lib/systemd/system/vector.unit
+    regexp: '/usr/bin/vector\b'
+    replace: '/usr/bin/vector --config /etc/vector/*.yaml'
+  notify: 
+    - reload systemd
+    - Restart Vector
+
 
   
 
