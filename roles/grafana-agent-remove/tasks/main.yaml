@@ -1,0 +1,31 @@
+- name: make sure agent service is stopped
+  ansible.builtin.systemd:
+    name: grafana-agent-flow
+    state: stopped
+    enabled: no
+
+- name: Uninstall Grafana Agent Flow
+  ansible.builtin.apt:
+    name: grafana-agent-flow
+    state: absent
+
+- name: Remove grafana apt key
+  file:
+    path: /etc/apt/keyrings/grafana.asc
+    state: absent
+
+- name: remove grafana repo
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
+    state: absent
+
+- name: remove extra config dir
+  file:
+    state: absent
+    path: /etc/grafana-targets.d
+
+- name: Remove Grafana config file
+  file:
+    path: /etc/grafana-agent-flow.river 
+    state: absent
+
