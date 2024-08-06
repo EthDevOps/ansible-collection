@@ -32,7 +32,7 @@
     path: /etc/vector
     state: directory
 
-- name: add the scrape to grafana agent
+- name: add the scrape to vector
   ansible.builtin.template:
     src: vector.yaml.j2
     dest: /etc/vector/jitsi.yaml
