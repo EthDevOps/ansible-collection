@@ -1,0 +1,10 @@
+sources:
+  metrics_discourse:
+    type: prometheus_scrape
+    tls:
+      verify_certificate: false
+      verify_hostname: false
+    endpoints:
+      - https://{{ forum_domain }}/metrics
+
+

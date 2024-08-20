@@ -1,0 +1,11 @@
+- name: Add forum domain to hosts file
+  lineinfile:
+    path: /etc/hosts
+    line: "127.0.0.1 {{ forum_domain }}"
+    state: present
+
+- name: Template the vector sources file
+  template:
+    src: vector.yaml.j2
+    dest: /etc/vector/discourse.yaml
+  notify: vector-reload

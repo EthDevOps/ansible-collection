@@ -1,0 +1,4 @@
+- name: vector-reload
+  ansible.builtin.systemd:
+    name: vector
+    state: reloaded
