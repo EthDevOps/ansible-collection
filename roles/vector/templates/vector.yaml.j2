@@ -49,12 +49,16 @@ sinks:
   quokka_vlogs:
     inputs: ["logs_with_labels"]
     type = "elasticsearch"
-    endpoints: [ "http://{{logs_host}}/insert/elasticsearch/" ]
+    endpoints: [ "https://{{logs_host}}/insert/elasticsearch/" ]
     mode: "bulk"
     api_version: "v8"
     healthcheck:
       enabled: false
 
+    auth:
+      strategy: basic
+      user: "{{ metrics_user }}"
+      password: "{{ metrics_password }}"
     query:
       _msg_field: "message"
       _time_field: "timestamp"
