@@ -6,6 +6,7 @@
     name: vector
 
 - name: Start and enable vector
+  ignore_errors: yes
   ansible.builtin.systemd:
     name: vector
     state: started
