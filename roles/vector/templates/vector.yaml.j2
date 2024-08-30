@@ -48,7 +48,7 @@ sinks:
 
   quokka_vlogs:
     inputs: ["logs_with_labels"]
-    type = "elasticsearch"
+    type: "elasticsearch"
     endpoints: [ "https://{{logs_host}}/insert/elasticsearch/" ]
     mode: "bulk"
     api_version: "v8"
