@@ -27,6 +27,12 @@
     state: started
     enabled: yes
 
+- name: add vector to jitsi group
+  user:
+    name: vector
+    groups: jitsi
+    append: yes
+
 - name: ensure vector config dir exists
   ansible.builtin.file:
     path: /etc/vector
