@@ -1,10 +1,19 @@
 sources:
+  jitsi_logs:
+    type: file
+    include:
+      - /var/log/jitsi/*.log
   jitsi_jvb:
     type: prometheus_scrape
     endpoints:
       - http://127.0.0.1:9888/metrics
 
 transforms:
+  logs_jitsi_jvb:
+    type: remap
+    inputs: ["jitsi_logs"]
+    source: |-
+      .tags.jitsi_region = "{{ jitsi_region }}"
   metrics_jitsi_jvb:
     type: remap
     inputs: ["jitsi_jvb"]
