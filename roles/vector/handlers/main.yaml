@@ -1,6 +1,6 @@
 - name: Restart Vector
   ansible.builtin.systemd:
-    name: vector
+    name: vector-multi
     state: restarted
 
 - name: reload systemd
