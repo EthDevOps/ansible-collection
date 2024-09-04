@@ -39,7 +39,7 @@ sinks:
     healthcheck:
       enabled: false
     type: prometheus_remote_write
-    inputs: ["metrics_with_labels"]
+    inputs: ["metrics_with_labels"{{ vector_extra_metrics }}]
     endpoint: https://{{ metrics_host }}/api/v1/write
     auth:
       strategy: basic
