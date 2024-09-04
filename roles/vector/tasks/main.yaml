@@ -8,7 +8,7 @@
 - name: copy vector multi systemd unit
   copy:
     src: vector-multi.service
-    dest: /etc/system.d/system/vector-multi.service
+    dest: /etc/systemd/system/vector-multi.service
 
 - name: reload systemd
   systemd:
