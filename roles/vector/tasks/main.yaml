@@ -9,12 +9,10 @@
   copy:
     src: vector-multi.service
     dest: /etc/system.d/system/vector-multi.service
-  register: vector-multi
 
 - name: reload systemd
   systemd:
     daemon-reload: true
-  when: vector-multi.changed
 
 - name: Stop and disable stock vector
   ignore_errors: yes
