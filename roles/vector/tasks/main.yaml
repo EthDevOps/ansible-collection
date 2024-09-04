@@ -5,10 +5,28 @@
   apt:
     name: vector
 
-- name: Start and enable vector
+- name: copy vector multi systemd unit
+  copy:
+    src: vector-multi.service
+    dest: /etc/system.d/system/vector-multi.service
+  register: vector-multi
+
+- name: reload systemd
+  systemd:
+    daemon-reload: true
+  when: vector-multi.changed
+
+- name: Stop and disable stock vector
   ignore_errors: yes
   ansible.builtin.systemd:
     name: vector
+    state: stopped
+    enabled: false
+
+- name: Start and enable multi vector
+  ignore_errors: yes
+  ansible.builtin.systemd:
+    name: vector-multi
     state: started
     enabled: true
 
