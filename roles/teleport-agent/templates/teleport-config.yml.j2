@@ -33,3 +33,11 @@ proxy_service:
   https_keypairs: []
   https_keypairs_reload_interval: 0s
   acme: {}
+app_service:
+  enabled: "{{ 'yes' if teleport_apps | length > 0 else 'no' }}"
+  apps:
+{% for app in teleport_apps %}
+  -  name: "{{ app.name }}"
+     uri: "{{ app.url }}"
+     public_addr: "{{ app.name }}.teleport.ethquokkaops.io"
+{% endfor %}

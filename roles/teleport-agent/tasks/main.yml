@@ -23,7 +23,7 @@
     name: teleport
 
 - name: Generate Teleport join token on control node
-  command: tctl tokens add --type=node --format=text 
+  command: tctl tokens add --type=node,app,db --format=text 
   delegate_to: localhost
   register: tctl_output
   become: false
