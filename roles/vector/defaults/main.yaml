@@ -1,1 +1,2 @@
 vector_extra_metrics: ""
+install_nodeexporter: true
