@@ -38,6 +38,7 @@
     group: "{{ extra_user }}"
     mode: '0600'
     force: yes
+  when: ssh_keys is defined and extra_user in ssh_keys
 
 - name: Allow user {{ extra_user }} passwordless sudo
   ansible.builtin.lineinfile:
