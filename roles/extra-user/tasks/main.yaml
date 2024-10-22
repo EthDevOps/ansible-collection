@@ -32,7 +32,7 @@
 - name: Add public keys from NetBox to authorized_keys
   ansible.builtin.copy:
     remote_src: true
-    content: "{{ ssh_keys[extra_user] }}"
+    content: "{{ ssh_keys[extra_user] }}\n"
     dest: "/home/{{ extra_user }}/.ssh/authorized_keys"
     owner: "{{ extra_user }}"
     group: "{{ extra_user }}"
