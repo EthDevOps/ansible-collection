@@ -19,6 +19,7 @@
 
 - name: install Teleport agent
   register: install_teleport
+  notify: reload teleport
   apt:
     state: latest
     name: teleport
