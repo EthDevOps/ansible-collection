@@ -39,11 +39,8 @@
   authorized_key:
     user: "{{ item.name }}"
     state: present
-    key: "{{ key }}"
-  loop: "{{ additional_users }}"
-  loop_control:
-    loop_var: item
-  with_items: "{{ item.sshkeys }}"
+    key: "{{ item.sshkeys }}"
+  loop: "{{ additional_users | flatten  }}"
 
 - name: Allow passwordless sudo for users
   lineinfile:
