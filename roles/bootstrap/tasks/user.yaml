@@ -25,6 +25,8 @@
     state: present
     shell: /bin/bash
   loop: "{{ additional_users }}"
+  loop_control:
+    label: "{{ item.name }}"
 
 - name: Create .ssh directory for each user
   file:
@@ -34,13 +36,15 @@
     group: "{{ item.name }}"
     mode: '0700'
   loop: "{{ additional_users }}"
+  loop_control:
+    label: "{{ item.name }}"
 
 - name: Add SSH keys for each user
   authorized_key:
-    user: "{{ item.name }}"
+    user: "{{ item.0.name }}"
     state: present
-    key: "{{ item.sshkeys }}"
-  loop: "{{ additional_users | flatten  }}"
+    key: "{{ item.1 }}"
+  loop: "{{ additional_users | subelements('sshkeys')  }}"
 
 - name: Allow passwordless sudo for users
   lineinfile:
@@ -48,3 +52,5 @@
     line: "{{ item.name }} ALL=(ALL) NOPASSWD: ALL"
     validate: "/usr/sbin/visudo -cf %s"
   loop: "{{ additional_users }}"
+  loop_control:
+    label: "{{ item.name }}"
