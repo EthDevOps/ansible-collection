@@ -44,3 +44,14 @@
     name: jitsi-videobridge2
     state: started
     enabled: yes
+
+- name: Add cron job to restart JVB every saturday
+  cron:
+    name: "Restart JVB"
+    minute: "0"
+    hour: "10"
+    day: "*"
+    month: "*"
+    weekday: "6"
+    job: "/usr/bin/systemctl restart jitsi-videobridge"
+    state: present
