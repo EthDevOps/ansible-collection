@@ -5,5 +5,5 @@
 
 - name: vector-reload
   ansible.builtin.systemd:
-    name: vector
+    name: vector-multi
     state: reloaded
