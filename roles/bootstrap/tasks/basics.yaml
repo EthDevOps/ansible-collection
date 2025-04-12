@@ -12,6 +12,10 @@
     dest: /etc/hosts
     line: '{{ ansible_host }} {{ inventory_hostname }}'
 
-- name: make sure sudo is installed
+- name: make sure important tools are installed
   apt:
-    name: sudo
+    name:
+      - sudo
+      - cron
+
+    
