@@ -1,9 +1,22 @@
-- name: Install Vector.dev repository
-  shell: bash -c "$(curl -L https://setup.vector.dev)"
-
-- name: Install Vector.dev
-  apt:
-    name: vector
+- name: Get system architecture
+  ansible.builtin.command: dpkg --print-architecture
+  register: system_arch
+  changed_when: false
+  
+- name: Download Vector deb package
+  ansible.builtin.get_url:
+    url: "https://apt.vector.dev/pool/v/ve/vector_{{ vector_version }}_{{ system_arch.stdout }}.deb"
+    dest: "/tmp/vector_{{ vector_version }}_{{ system_arch.stdout }}.deb"
+    mode: '0644'
+  
+- name: Install Vector using dpkg
+  ansible.builtin.dpkg:
+    path: "/tmp/vector_{{ vector_version }}_{{ system_arch.stdout }}.deb"
+    
+- name: Clean up downloaded deb file
+  ansible.builtin.file:
+    path: "/tmp/vector_{{ vector_version }}_{{ system_arch.stdout }}.deb"
+    state: absent
 
 - name: copy vector multi systemd unit
   copy:
