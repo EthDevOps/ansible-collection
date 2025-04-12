@@ -10,8 +10,8 @@
     mode: '0644'
   
 - name: Install Vector using dpkg
-  ansible.builtin.dpkg:
-    path: "/tmp/vector_{{ vector_version }}_{{ system_arch.stdout }}.deb"
+  ansible.builtin.apt:
+    deb: "/tmp/vector_{{ vector_version }}_{{ system_arch.stdout }}.deb"
     
 - name: Clean up downloaded deb file
   ansible.builtin.file:
