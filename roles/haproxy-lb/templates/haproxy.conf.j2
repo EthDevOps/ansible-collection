@@ -215,13 +215,13 @@ backend {{ site }}
 
     {% if hap_clusters[hap_sites[site].cluster]["nodes"] is defined %}
     {% for server in hap_clusters[hap_sites[site].cluster].nodes %}
-    server {{ server }} {{ hostvars[server]["ansible_host"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
+    server {{ server }} {{ lb_hostvars[server]["ansible_host"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
     {% endfor %}
     {% endif %}
 
     {% if hap_clusters[hap_sites[site].cluster]["nodeGroup"] is defined %}
     {% for server in groups[hap_clusters[hap_sites[site].cluster].nodeGroup] %}
-    server {{ server }} {{ hostvars[server]["ansible_host"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
+    server {{ server }} {{ lb_hostvars[server]["ansible_host"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
     {% endfor %}
     {% endif %}
 
@@ -239,13 +239,13 @@ backend tcp_{{ tun }}
 
     {% if hap_clusters[hap_tunnels[tun].cluster]["nodes"] is defined %}
     {% for server in hap_clusters[hap_tunnels[tun].cluster].nodes %}
-    server {{ server }} {{ hostvars[server]["ansible_host"] }}:{{ hap_tunnels[tun].cluster_port }} 
+    server {{ server }} {{ lb_hostvars[server]["ansible_host"] }}:{{ hap_tunnels[tun].cluster_port }} 
     {% endfor %}
     {% endif %}
     
     {% if hap_clusters[hap_tunnels[tun].cluster]["nodeGroup"] is defined %}
     {% for server in groups[hap_clusters[hap_tunnels[tun].cluster].nodeGroup] %}
-    server {{ server }} {{ hostvars[server]["ansible_host"] }}:{{ hap_tunnels[tun].cluster_port }} 
+    server {{ server }} {{ lb_hostvars[server]["ansible_host"] }}:{{ hap_tunnels[tun].cluster_port }} 
     {% endfor %}
     {% endif %}
 
