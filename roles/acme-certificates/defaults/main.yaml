@@ -2,6 +2,6 @@ acmedns_server: acme.ethquokkaops.io
 acmedns_cert_email: devops+acme@ethereum.org
 acmedns_cert_domains:
   - domain: keil-connect.com
-    username: 691e36d6-97db-413a-acfa-7bc5b1382aa6
-    password: 7wUdFT4LGmmFtv839qxr_Vom2QmRuuIZmQI9CJoD
-    subdomain: 74a1fa8b-3c41-4448-acc2-62790014f237
+    username: example
+    password: example
+    subdomain: example
