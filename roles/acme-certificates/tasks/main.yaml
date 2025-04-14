@@ -31,7 +31,7 @@
 
 - name: Check if domain has already a certificate
   stat:
-    path: /etc/letsencrypt/live/{{item}}
+    path: /etc/letsencrypt/live/{{ item.domain }}
   loop: "{{ acmedns_cert_domains }}"
   register: cert_status
 
@@ -39,7 +39,7 @@
   throttle: 1
   when: not item.stat.exists
   loop: "{{ cert_status.results }}"
-  command: certbot certonly -n -m '{{ acmedns_cert_email }}' --agree-tos --manual --manual-auth-hook '/usr/local/bin/acme-dns-certbot-hook -config /etc/acme-dns.cfg' --preferred-challenges dns -d {{ item.item }} -d '*.{{ item.item }}' 
+  command: certbot certonly -n -m '{{ acmedns_cert_email }}' --agree-tos --manual --manual-auth-hook '/usr/local/bin/acme-dns-certbot-hook -config /etc/acme-dns.cfg' --preferred-challenges dns -d {{ item.item.domain }} -d '*.{{ item.item.domain }}' 
 
 - name: prepare haproxy certs
   shell: "/usr/local/bin/prepare-certs.sh"
