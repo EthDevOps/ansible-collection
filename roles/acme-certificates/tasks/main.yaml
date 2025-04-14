@@ -34,11 +34,15 @@
     path: /etc/letsencrypt/live/{{ item.domain }}
   loop: "{{ acmedns_cert_domains }}"
   register: cert_status
+  loop_control:
+    label: "{{ item.domain }}"
 
 - name: Request certificates for new domains from Let's Encrypt
   throttle: 1
   when: not item.stat.exists
   loop: "{{ cert_status.results }}"
+  loop_control:
+    label: "{{ item.item.domain }}"
   command: certbot certonly -n -m '{{ acmedns_cert_email }}' --agree-tos --manual --manual-auth-hook '/usr/local/bin/acme-dns-certbot-hook -config /etc/acme-dns.cfg' --preferred-challenges dns -d {{ item.item.domain }} -d '*.{{ item.item.domain }}' 
 
 - name: prepare haproxy certs
