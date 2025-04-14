@@ -1,0 +1,58 @@
+- name: install certbot
+  ansible.builtin.apt:
+    update_cache: yes
+    pkg:
+      - certbot
+      - cron
+      - python3-certbot-dns-cloudflare
+
+- name: download acme-dns-hook
+  get_url:
+    url: https://github.com/koesie10/acme-dns-certbot-hook/releases/download/v0.1.1/acme-dns-certbot-hook_0.1.1_linux_amd64.tar.gz
+    dest: /tmp/acme-dns-certbot-hook.tar.gz
+    mode: '0644'  # Set the appropriate permissions if needed
+
+- name: Extract acme-dns-certbot-hook tarball
+  unarchive:
+    src: /tmp/acme-dns-certbot-hook.tar.gz
+    dest: /usr/local/bin  # Change this to your desired destination
+    remote_src: yes  # Indicates that the src file is already on the remote host
+
+- name: generate acme-dns config
+  template:
+    src: acme-dns.cfg.j2
+    dest: /etc/acme-dns.cfg
+
+- name: generate cert prepare script
+  template:
+    src: prepare-certs.sh.j2
+    dest: /usr/local/bin/prepare-certs.sh
+    mode: '0755'
+
+- name: Check if domain has already a certificate
+  stat:
+    path: /etc/letsencrypt/live/{{item}}
+  loop: "{{ cert_domains }}"
+  register: cert_status
+
+- name: Request certificates for new domains from Let's Encrypt
+  throttle: 1
+  when: not item.stat.exists
+  loop: "{{ cert_status.results }}"
+  command: certbot certonly -n -m '{{ cert_email }}' --agree-tos --manual --manual-auth-hook '/usr/local/bin/acme-dns-certbot-hook -config /etc/acme-dns.cfg' --preferred-challenges dns -d {{ item.item }} -d '*.{{ item.item }}' 
+
+- name: prepare haproxy certs
+  shell: "/usr/local/bin/prepare-certs.sh"
+  args:
+    executable: /bin/bash
+
+- name: Add certificate auto-renew to cron
+  cron:
+    name: renew certificates
+    minute: "0"
+    hour: "{{ 12 + ansible_play_hosts.index(inventory_hostname) }}"
+    job: "/usr/bin/certbot renew --post-hook '/usr/local/bin/prepare-certs.sh'"
+
+
+
+

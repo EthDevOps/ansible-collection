@@ -1,0 +1,53 @@
+global_defs {
+  enable_script_security
+  script_user root
+}
+
+vrrp_script chk_haproxy {
+    script 'killall -0 haproxy' # faster than pidof
+    interval 2
+}
+
+vrrp_sync_groupVI_1 {
+  group {
+    VI_1_100_4
+    VI_1_100_6
+  }
+}
+
+vrrp_instance VI_1_4 {
+    state {{ vrrp_role | upper }}
+    interface eth0  # Change this to your actual interface name
+    virtual_router_id {{ vrrp_group }}
+    priority {{ vrrp_priority }}  # Set higher on the MASTER
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass {{ vrrp_secret}}  # Change to a secure password
+    }
+    virtual_ipaddress {
+        {{ vrrp_shared_ipv4 }}
+    }
+    track_script {
+        chk_haproxy
+    }
+}
+
+vrrp_instance VI_1_6 {
+    state {{ vrrp_role | upper }}
+    interface eth0  # Change this to your actual interface name
+    virtual_router_id {{ vrrp_group }}
+    priority {{ vrrp_priority }}  # Set higher on the MASTER
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass {{ vrrp_secret}}  # Change to a secure password
+    }
+    virtual_ipaddress {
+        {{ vrrp_shared_ipv6 }}
+    }
+    track_script {
+        chk_haproxy
+    }
+}
+

@@ -1,0 +1,15 @@
+{
+    "acme_dns_url": "https://{{ acmedns_server }}"
+    "propagation_duration": "10s",
+    "domains": {
+      {% for domain in acmedns_cert_domains %}
+        "{{ domain.domain }}": {
+            "username": "{{ domain.username }}",
+            "password": "{{ domain.password }}",
+            "fulldomain": "{{ domain.subdomain }}.{{ acmedns_server }}",
+            "subdomain": "{{ domain.subdomain }}",
+            "allowfrom": []
+        }{% if not loop.last %},{% endif %}
+{% endfor %}
+    }
+}

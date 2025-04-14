@@ -1,0 +1,15 @@
+- name: Install keepalived
+  apt:
+    pkg: keepalived
+
+- name: Create keepalived config
+  register: keepaliveconfig
+  template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+
+- name: restart keepalived
+  when: keepaliveconfig.changed
+  systemd:
+    name: keepalived
+    state: restarted
