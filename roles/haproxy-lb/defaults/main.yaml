@@ -1,0 +1,11 @@
+hap_stats_user: user
+hap_stats_password: somepassword
+hap_auth: []
+hap_rate_limit_per_min: 1500 # 25req/sec
+
+hap_rate_limit_targets: []
+hap_rate_limit_exclude: []
+hap_clusters: []
+hap_sites: []
+hap_tunnels: []
+hap_redirects: []

@@ -1,0 +1,89 @@
+- name: install gpg
+  ansible.builtin.apt:
+    update_cache: yes
+    pkg:
+      - gpg
+
+- name: Add haproxy apt key
+  ansible.builtin.apt_key:
+    url: https://haproxy.debian.net/bernat.debian.org.gpg
+    state: present
+
+- name: Add haproxy apt repo
+  ansible.builtin.apt_repository:
+    repo: deb http://haproxy.debian.net bookworm-backports-3.1 main
+    state: present
+
+- name: install haproxy
+  ansible.builtin.apt:
+    update_cache: yes
+    default_release: bookworm-backports-3.1
+    pkg:
+      - "haproxy=3.1.*"
+
+- name: make sure certificate dir exists
+  ansible.builtin.file:
+    path: /etc/certificates
+    state: directory
+    mode: "0755"
+  
+
+- name: make sure errors directory exists
+  ansible.builtin.file:
+    path: /etc/haproxy/errors
+    state: directory
+    mode: "0755"
+
+- name: copy error pages
+  loop:
+    - { code: 400, msg: "Bad Request" }
+    - { code: 500, msg: "Internal Server Error" }
+    - { code: 502, msg: "Bad Gateway" }
+    - { code: 503, msg: "Service Unavailable" }
+    - { code: 504, msg: "Gateway Timeout" }
+  notify: "reload haproxy"
+  ansible.builtin.template:
+    src: templates/error.html.j2
+    dest: /etc/haproxy/errors/{{ item.code }}.http
+    mode: "0644"
+
+- name: generate proxy configs for verification
+  notify: "reload haproxy"
+  template:
+    src: templates/haproxy.conf.j2
+    dest: /tmp/haproxy.cfg.new
+    mode: "0644"
+  register: genconfig
+
+- name: generate allowlist
+  notify: "reload haproxy"
+  template:
+    src: templates/allowlist.acl.j2
+    dest: /etc/haproxy/allowlist.acl
+    mode: "0644"
+
+- name: verify proxy configs # noqa no-handler
+  command: haproxy -c -V -f /tmp/haproxy.cfg.new
+  when: genconfig.changed
+
+- name: Copy the verified config # noqa no-handler
+  command: cp /tmp/haproxy.cfg.new /etc/haproxy/haproxy.cfg
+  when: genconfig.changed
+
+- name: reload haproxy
+  systemd:
+    name: haproxy
+    state: reloaded
+  when: genconfig.changed
+
+- name: ensure vector config dir exists
+  ansible.builtin.file:
+    path: /etc/vector
+    state: directory
+
+- name: add the scrape to vector
+  ansible.builtin.copy:
+    src: vector.yaml
+    dest: /etc/vector/haproxy.yaml
+  notify: vector-reload
+

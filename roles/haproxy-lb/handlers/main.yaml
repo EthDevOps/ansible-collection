@@ -1,0 +1,9 @@
+- name: reload haproxy
+  systemd:
+    name: haproxy
+    state: reloaded
+
+- name: vector-reload
+  ansible.builtin.systemd:
+    name: vector-multi
+    state: reloaded

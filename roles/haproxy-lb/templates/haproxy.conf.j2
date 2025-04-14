@@ -1,0 +1,254 @@
+#jinja2: lstrip_blocks: "True"
+global
+    log /dev/log    local0
+    log /dev/log    local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
+
+    # modern configuration from
+    #  https://mozilla.github.io/server-side-tls/ssl-config-generator/?server=haproxy
+    ssl-default-bind-curves X25519:prime256v1:secp384r1
+    ssl-default-bind-ciphersuites TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
+    ssl-default-bind-options prefer-client-ciphers ssl-min-ver TLSv1.3 no-tls-tickets
+
+    ssl-default-server-curves X25519:prime256v1:secp384r1
+    ssl-default-server-ciphersuites TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
+    ssl-default-server-options ssl-min-ver TLSv1.3 no-tls-tickets
+
+defaults
+    log     global
+    mode    http
+    option  httplog
+    option  dontlognull
+    option  dontlog-normal
+
+    timeout connect 5000
+    timeout client  50000
+    timeout server  50000
+
+    errorfile 500 /etc/haproxy/errors/500.http
+    errorfile 502 /etc/haproxy/errors/502.http
+    errorfile 503 /etc/haproxy/errors/503.http
+    errorfile 504 /etc/haproxy/errors/504.http
+
+# Authentication
+{% for group in hap_auth %}
+userlist {{ group.group }}
+    {% for user in group.users %}
+    user {{ user.name }} password {{ user.pass | password_hash('sha256') }}
+    {% endfor %}
+{% endfor %}
+
+cache global_cache
+  total-max-size 512 # 512 MB
+  max-object-size 102400 # 100 KB
+  max-age 600 # Stay in cache for 10 minutes
+  process-vary on
+  max-secondary-entries 12
+
+
+listen stats
+    bind 127.0.0.1:32700
+    stats enable
+    stats uri /
+    stats hide-version
+    stats auth {{ hap_stats_user }}:{{ hap_stats_password }}
+
+frontend prometheus
+    bind *:9142
+    mode http
+    no log
+    http-request use-service prometheus-exporter if { path /metrics }
+
+frontend http
+    bind :80
+    bind :443 ssl crt /etc/certificates/ alpn h2,http/1.1
+    mode http
+
+    default_backend default
+
+    # ACL function declarations for Rate Limits
+    capture request  header Host len 20
+    capture response header Location len 20
+    
+    acl is_abuse src_http_req_rate(Abuse) ge {{ hap_rate_limit_per_min }}
+    acl inc_abuse_cnt src_inc_gpc0(Abuse) gt 0  # Increments counter GPC0 (general purpose counter 0) by one when called/matched - Activates limiter
+    acl abuse_cnt src_get_gpc0(Abuse) gt 0      # Query GPC0 for > 0 - checks on limiter
+
+    ### Rate limiter
+    tcp-request connection track-sc0 src table Abuse
+    tcp-request connection reject if abuse_cnt !{ src -f /etc/haproxy/allowlist.acl }
+    
+    http-request track-sc0 src table Abuse
+    http-request reject if abuse_cnt !{ src -f /etc/haproxy/allowlist.acl }
+
+    # Tarpit ratelimited requests for 10s
+    timeout tarpit 10s
+
+    {% for item in hap_rate_limit_targets %}
+
+    # Rate limiter ACL for {{ item.name }}
+    acl ratehost_{{ item.name }} hdr(host) -i {{ item.domain }}
+    acl ratehost_{{ item.name }} hdr(host) -i {{ item.domain }}:80
+    acl ratehost_{{ item.name }} hdr(host) -i {{ item.domain }}:443
+    http-request tarpit deny_status 429 if ratehost_{{ item.name }} is_abuse inc_abuse_cnt !{ src -f /etc/haproxy/allowlist.acl }
+    {% endfor %}
+
+
+    # HSTS (63072000 seconds)
+    http-response set-header Strict-Transport-Security max-age=63072000
+
+    {% for site in hap_sites %}
+
+    # START SITE: {{ site }}
+    {% for domain in hap_sites[site].domains %}
+    acl host_{{ site }} hdr(host) -i {{ domain }}
+    acl host_{{ site }} hdr(host) -i {{ domain }}:80
+    acl host_{{ site }} hdr(host) -i {{ domain }}:443
+    {% endfor %}
+    
+    {% if hap_sites[site].path is defined %}
+    acl path_{{ item }} path -i -m beg {{ hap_sites[site].path }}
+    {% endif %}
+    {% if hap_sites[site].use_cache is defined and hap_sites[site].use_cache == 'true' %}
+    http-request cache-use global_cache if host_{{ site }}
+    http-response cache-store global_cache if host_{{ site }}
+    {% endif %}
+
+    use_backend {{ site }} if host_{{ site }} {% if hap_sites[site].path is defined %} path_{{ site }}{% endif %}
+    # END SITE: {{ site }}
+
+   {% endfor %}
+
+### TCP Frontends
+
+{% for tun in hap_tunnels %}
+frontend fe_{{ tun }}
+    bind *:{{ hap_tunnels[tun].port }}
+    mode tcp
+    option tcplog
+    default_backend tcp_{{ tun }}
+{% endfor %}
+
+############
+# BACKENDS #
+############
+
+backend Abuse
+    stick-table type ip size 100K expire 30m store gpc0,http_req_rate(60s)
+
+# Certbot backend
+# Contains certbot stand-alone webserver
+backend backend-certbot
+    mode http
+    server certbot 127.0.0.1:7080
+
+backend default
+    balance roundrobin
+    option forwardfor
+    option http-server-close
+
+    # Redirects
+
+    {% if hap_redirects is defined %}
+    {% for redirect in hap_redirects %}
+
+    {% if redirect.match is defined %}
+    acl redir_match_{{ loop.index }} path_reg {{ redirect.match }}
+    http-request redirect code 301 location {{ redirect.dest }} if redir_match_{{ loop.index }}
+    {% endif %}
+
+    {% if redirect.domain is defined %}
+    acl redir_host_{{ loop.index }} hdr(host) -i {{ redirect.domain }}
+    acl redir_host_{{ loop.index }} hdr(host) -i {{ redirect.domain }}:80
+    acl redir_host_{{ loop.index }} hdr(host) -i {{ redirect.domain }}:443
+    http-request redirect code 301 location {{ redirect.dest }} if redir_host_{{ loop.index }}
+    {% endif %}
+
+    {% endfor %}
+    {% endif %}
+
+
+{% for site in hap_sites %}
+backend {{ site }}
+    balance roundrobin
+    option forwardfor
+    option forwarded
+    
+    # keep websockets around for 2h
+    timeout tunnel 2h
+
+    # only keep clients in the connection queue for 1 minute
+    timeout queue 60s
+
+    option http-server-close
+    http-request set-header X-Forwarded-Port %[dst_port]
+    http-request add-header X-Forwarded-Proto https if { ssl_fc }
+
+    # Enable compression towards the client
+    filter compression
+    compression algo gzip
+    compression type text/css text/html text/javascript application/javascript text/plain text/xml application/json
+    compression offload
+
+    {% if hap_sites[site]["auth"] is defined %}
+    acl basic-auth http_auth({{ hap_sites[site]["auth"] }})
+    http-request auth realm {{ site }} unless basic-auth
+    http-request del-header Authorization
+    {% endif %}
+
+    {% if hap_sites[site]["set_path"] is defined %}
+    http-request set-path {{ hap_sites[site]["set_path"] }}
+    {% endif %}
+
+
+    {% if hap_sites[site]["use_sticky"] is defined %}
+    cookie SERVER_USED insert indirect nocache
+    {% endif %}
+
+    default-server check maxconn {{ hap_sites[site].max_conn | default('30') }} fall 3 rise 2 {{ 'ssl verify none' if hap_sites[site].sslbackend is defined else '' }} {{ 'h2' if internalsites[site].http2 is defined else '' }} {{ 'cookie s' if hap_sites[site]["use_sticky"] is defined }}{{ loop.index if hap_sites[site]["use_sticky"] is defined }}
+
+
+    {% if hap_clusters[hap_sites[site].cluster]["nodes"] is defined %}
+    {% for server in hap_clusters[hap_sites[site].cluster].nodes %}
+    server {{ server }} {{ hostvars[server]["ansible_host"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
+    {% endfor %}
+    {% endif %}
+
+    {% if hap_clusters[hap_sites[site].cluster]["nodeGroup"] is defined %}
+    {% for server in groups[hap_clusters[hap_sites[site].cluster].nodeGroup] %}
+    server {{ server }} {{ hostvars[server]["ansible_host"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
+    {% endfor %}
+    {% endif %}
+
+
+{% endfor %}
+
+{% if hap_tunnels is defined %}
+{% for tun in hap_tunnels %}
+
+backend tcp_{{ tun }}
+    mode tcp
+    balance roundrobin
+
+    default-server check maxconn {{ hap_tunnels[tun].maxconn | default('30') }} fall 3 rise 2
+
+    {% if hap_clusters[hap_tunnels[tun].cluster]["nodes"] is defined %}
+    {% for server in hap_clusters[hap_tunnels[tun].cluster].nodes %}
+    server {{ server }} {{ hostvars[server]["ansible_host"] }}:{{ hap_tunnels[tun].cluster_port }} 
+    {% endfor %}
+    {% endif %}
+    
+    {% if hap_clusters[hap_tunnels[tun].cluster]["nodeGroup"] is defined %}
+    {% for server in groups[hap_clusters[hap_tunnels[tun].cluster].nodeGroup] %}
+    server {{ server }} {{ hostvars[server]["ansible_host"] }}:{{ hap_tunnels[tun].cluster_port }} 
+    {% endfor %}
+    {% endif %}
+
+{% endfor %}
+{% endif %}
+
