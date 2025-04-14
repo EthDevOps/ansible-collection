@@ -47,6 +47,12 @@
     dest: /etc/haproxy/errors/{{ item.code }}.http
     mode: "0644"
 
+
+- name: Set lb_hostvars equal to hostvars if not already set
+  set_fact:
+    lb_hostvars: "{{ hostvars }}"
+  when: lb_hostvars is not defined
+
 - name: generate proxy configs for verification
   notify: "reload haproxy"
   template:
