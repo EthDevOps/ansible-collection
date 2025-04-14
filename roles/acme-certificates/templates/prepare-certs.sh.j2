@@ -1,8 +1,8 @@
 #!/bin/bash
 {% for domain in acmedns_cert_domains %}
 
-echo "Preparing Domain {{domain}}..."
-cat /etc/letsencrypt/live/{{ domain }}/fullchain.pem /etc/letsencrypt/live/{{ domain }}/privkey.pem > /etc/certificates/{{ domain }}.pem
+echo "Preparing Domain {{domain.domain}}..."
+cat /etc/letsencrypt/live/{{ domain.domain }}/fullchain.pem /etc/letsencrypt/live/{{ domain.domain }}/privkey.pem > /etc/certificates/{{ domain.domain }}.pem
 
 {% endfor %}
 
