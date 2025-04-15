@@ -67,7 +67,10 @@ frontend prometheus
 {% if hap_sites and hap_sites|length > 0 %}
 frontend http
     bind [::]:80 v4v6
+
+    {% if not hap_sites_insecure %}
     bind [::]:443 v4v6 ssl crt /etc/certificates/ alpn h2,http/1.1
+    {% endif %}
     mode http
 
     default_backend default

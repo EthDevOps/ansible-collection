@@ -1,3 +1,4 @@
+hap_sites_insecure: False
 hap_stats_user: user
 hap_stats_password: somepassword
 hap_auth: []
