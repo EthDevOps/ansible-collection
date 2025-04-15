@@ -1,0 +1,24 @@
+- name: Setup k3s
+  when: not k3s_cleanup
+  vars:
+    k3s_server_role: "K3S Server"
+    k3s_agent_role: "K3S Worker"
+  block:
+    - name: Check for prerequirements
+      ansible.builtin.import_tasks: prereq.yaml
+
+    - name: Download k3s
+      ansible.builtin.import_tasks: download.yaml
+
+    - name: Setup server node
+      ansible.builtin.import_tasks: server.yaml
+      when: k3s_server_role in device_roles
+
+    - name: Setup agent node
+      ansible.builtin.import_tasks: agent.yaml
+      when: k3s_agent_role in device_roles
+
+
+- name: Cleanup k3s
+  ansible.builtin.import_tasks: cleanup.yaml
+  when: k3s_cleanup

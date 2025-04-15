@@ -1,0 +1,24 @@
+[Unit]
+Description=Lightweight Kubernetes
+Documentation=https://k3s.io
+After=network-online.target
+
+[Service]
+Type=notify
+Environment="K3S_TOKEN={{ k3s_token }}"
+ExecStartPre=-/sbin/modprobe br_netfilter
+ExecStartPre=-/sbin/modprobe overlay
+ExecStart=/usr/local/bin/k3s server --tls-san {{ k3s_server_lb_ip }} --cluster-init --flannel-backend={{ k3s_network_backend }} --data-dir {{ k3s_server_location }} {{ k3s_server_extra_args | default("") }} {{ k3s_server_join | default("") }}
+
+KillMode=process
+Delegate=yes
+LimitNOFILE=1048576
+LimitNPROC=infinity
+LimitCORE=infinity
+TasksMax=infinity
+TimeoutStartSec=0
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
