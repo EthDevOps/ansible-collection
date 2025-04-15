@@ -1,7 +1,7 @@
 - name: Find host with k3s_bootstrap defined
   set_fact:
     bootstrap_host: "{{ item }}"
-  loop: "{{ groups['k3s_servers'] | map('extract', hostvars) | selectattr('k3s_bootstrap', 'defined') | list }}"
+  loop: "{{ groups['device_roles_k3s-server'] | map('extract', hostvars) | selectattr('k3s_bootstrap', 'defined') | list }}"
   when: bootstrap_host is not defined
 
 - name: Set bootstrap
