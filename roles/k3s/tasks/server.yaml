@@ -7,7 +7,7 @@
 - name: Set bootstrap
   when: k3s_bootstrap is not defined
   set_fact:
-    k3s_server_join: "--server=https://{{bootstrap_host.ansible_host}}:6443"
+    k3s_server_join: "--server=https://{{ k3s_server_lb_ip }}:6443"
 
 - name: Copy K3s service file
   register: k3s_service

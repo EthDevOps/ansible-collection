@@ -6,9 +6,9 @@ k3s_systemd_dir: /etc/systemd/system
 k3s_server_location: /var/lib/rancher/k3s
 k3s_server_ip: "{{ hostvars[groups['k3s_server'][0]]['ansible_host'] | default(groups['k3s_server'][0]) }}"
 k3s_server_extra_args: >-
-  --node-external-ip={{ ansible_host }}
+  --node-external-ip={{ hostvars[inventory_hostname]['primary_ip4'] }}
 k3s_agent_extra_args: >-
-  --node-external-ip={{ ansible_host }}
+  --node-external-ip={{ hostvars[inventory_hostname]['primary_ip4'] }}
 
 # --flannel-iface=wg0
 
