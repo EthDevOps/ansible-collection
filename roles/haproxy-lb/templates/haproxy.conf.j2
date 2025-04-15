@@ -59,14 +59,14 @@ listen stats
     stats auth {{ hap_stats_user }}:{{ hap_stats_password }}
 
 frontend prometheus
-    bind *:9142
+    bind 127.0.0.1:9142
     mode http
     no log
     http-request use-service prometheus-exporter if { path /metrics }
 
 frontend http
-    bind :80
-    bind :443 ssl crt /etc/certificates/ alpn h2,http/1.1
+    bind [::]:80 v4v6
+    bind [::]:443 v4v6 ssl crt /etc/certificates/ alpn h2,http/1.1
     mode http
 
     default_backend default
@@ -128,7 +128,7 @@ frontend http
 
 {% for tun in hap_tunnels %}
 frontend fe_{{ tun }}
-    bind *:{{ hap_tunnels[tun].port }}
+    bind [::]:{{ hap_tunnels[tun].port }} v4v6
     mode tcp
     option tcplog
     default_backend tcp_{{ tun }}
