@@ -18,4 +18,9 @@
       - sudo
       - cron
 
-    
+- name: Disable wait for networking
+  ansible.builtin.systemd_service:
+    name: systemd-networkd-wait-online.service
+    state: disabled
+    masked: true
+
