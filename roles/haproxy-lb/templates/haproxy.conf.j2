@@ -64,6 +64,7 @@ frontend prometheus
     no log
     http-request use-service prometheus-exporter if { path /metrics }
 
+{% if hap_sites and hap_sites|length > 0 %}
 frontend http
     bind [::]:80 v4v6
     bind [::]:443 v4v6 ssl crt /etc/certificates/ alpn h2,http/1.1
@@ -123,7 +124,7 @@ frontend http
     # END SITE: {{ site }}
 
    {% endfor %}
-
+{% endif %}
 ### TCP Frontends
 
 {% for tun in hap_tunnels %}
