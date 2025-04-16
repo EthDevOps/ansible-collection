@@ -127,6 +127,30 @@ frontend http
     # END SITE: {{ site }}
 
    {% endfor %}
+   {% for cluster in hap_k8s_services %}
+
+   {% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-public"] is defined and svc.metadata.annotations["ethquokkaops.io/domain"] is defined %}
+
+    # START SITE: {{ cluster.item }} => {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr(host) -i {{ svc.metadata.annotations["ethquokkaops.io/domain"] }}
+    acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr(host) -i {{ svc.metadata.annotations["ethquokkaops.io/domain"] }}:80
+    acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr(host) -i {{ svc.metadata.annotations["ethquokkaops.io/domain"] }}:443
+    
+    {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
+    acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ svc.metadata.annotations["ethquokkaops.io/path"] }}
+    {% endif %}
+
+    {% if svc.metadata.annotations["ethquokkaops.io/use_cache"] is defined and svc.metadata.annotations["ethquokkaops.io/use_cache"] == 'true' %}
+    http-request cache-use global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    http-response cache-store global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    {% endif %}
+
+    use_backend k8s_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %} path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}{% endif %}
+
+    # END SITE: {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+
+   {% endfor %}
+   {% endfor %}
 {% endif %}
 ### TCP Frontends
 
@@ -231,6 +255,46 @@ backend {{ site }}
 
 
 {% endfor %}
+
+{% for cluster in hap_k8s_services %}
+{% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-public"] is defined and svc.metadata.annotations["ethquokkaops.io/domain"] is defined %}
+
+backend k8s_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    balance roundrobin
+    option forwardfor
+    option forwarded
+    
+    # keep websockets around for 2h
+    timeout tunnel 2h
+
+    # only keep clients in the connection queue for 1 minute
+    timeout queue 60s
+
+    option http-server-close
+    http-request set-header X-Forwarded-Port %[dst_port]
+    http-request add-header X-Forwarded-Proto https if { ssl_fc }
+
+    # Enable compression towards the client
+    filter compression
+    compression algo gzip
+    compression type text/css text/html text/javascript application/javascript text/plain text/xml application/json
+    compression offload
+
+
+    {% if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined and svc.metadata.annotations["ethquokkaops.io/sticky"] == 'true' %}
+    cookie SERVER_USED insert indirect nocache
+    {% endif %}
+
+    default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('30') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'h2' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}{{ loop.index if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}
+
+
+    server metallb_svc {{ svc.status.loadBalancer.ingress[0].ip}}:{{ svc.spec.ports[0].port }}
+
+
+
+{% endfor %}
+{% endfor %}
+
 
 {% if hap_tunnels is defined %}
 {% for tun in hap_tunnels %}
