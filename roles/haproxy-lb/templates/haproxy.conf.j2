@@ -238,7 +238,7 @@ backend {{ site }}
     cookie SERVER_USED insert indirect nocache
     {% endif %}
 
-    default-server check maxconn {{ hap_sites[site].max_conn | default('30') }} fall 3 rise 2 {{ 'ssl verify none' if hap_sites[site].sslbackend is defined else '' }} {{ 'h2' if internalsites[site].http2 is defined else '' }} {{ 'cookie s' if hap_sites[site]["use_sticky"] is defined }}{{ loop.index if hap_sites[site]["use_sticky"] is defined }}
+    default-server check maxconn {{ hap_sites[site].max_conn | default('30') }} fall 3 rise 2 {{ 'ssl verify none' if hap_sites[site].sslbackend is defined else '' }} {{ 'alpn h2,http/1.1' if internalsites[site].http2 is defined else '' }} {{ 'cookie s' if hap_sites[site]["use_sticky"] is defined }}{{ loop.index if hap_sites[site]["use_sticky"] is defined }}
 
 
     {% if hap_clusters[hap_sites[site].cluster]["nodes"] is defined %}
@@ -285,7 +285,7 @@ backend k8s_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name
     cookie SERVER_USED insert indirect nocache
     {% endif %}
 
-    default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('30') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'h2' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}{{ loop.index if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}
+    default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('30') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'alpn h2,http/1.1' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}{{ loop.index if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}
 
 
     server metallb_svc {{ svc.status.loadBalancer.ingress[0].ip}}:{{ svc.spec.ports[0].port }}
