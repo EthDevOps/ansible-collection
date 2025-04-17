@@ -124,6 +124,7 @@ frontend http
     {% endif %}
 
     use_backend {{ site }} if host_{{ site }} {% if hap_sites[site].path is defined %} path_{{ site }}{% endif %}
+
     # END SITE: {{ site }}
 
    {% endfor %}
@@ -135,6 +136,10 @@ frontend http
     acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr(host) -i {{ svc.metadata.annotations["ethquokkaops.io/domain"] }}
     acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr(host) -i {{ svc.metadata.annotations["ethquokkaops.io/domain"] }}:80
     acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr(host) -i {{ svc.metadata.annotations["ethquokkaops.io/domain"] }}:443
+    
+    {% if svc.metadata.annotations["ethquokkaops.io/auth-group"] is defined %}
+    http-request auth unless { http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) } if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    {% endif %}
     
     {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
     acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ svc.metadata.annotations["ethquokkaops.io/path"] }}
@@ -152,6 +157,7 @@ frontend http
    {% endfor %}
    {% endfor %}
 {% endif %}
+
 ### TCP Frontends
 
 {% for tun in hap_tunnels %}
