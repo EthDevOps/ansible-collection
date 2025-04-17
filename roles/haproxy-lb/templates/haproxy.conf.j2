@@ -39,7 +39,7 @@ defaults
 {% for group in hap_auth %}
 userlist {{ group.group }}
     {% for user in group.users %}
-    user {{ user.name }} password {{ user.pass | password_hash('sha256') }}
+    user {{ user.name }} password {{ user.password | password_hash('sha256') }}
     {% endfor %}
 {% endfor %}
 
