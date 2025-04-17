@@ -138,7 +138,7 @@ frontend http
     acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr(host) -i {{ svc.metadata.annotations["ethquokkaops.io/domain"] }}:443
     
     {% if svc.metadata.annotations["ethquokkaops.io/auth-group"] is defined %}
-    http-request auth unless { http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) } if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    http-request auth if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} !{ http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) }
     {% endif %}
     
     {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
