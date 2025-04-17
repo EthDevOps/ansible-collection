@@ -3,7 +3,6 @@
     update_cache: yes
     pkg:
       - gpg
-      - python3-passlib
 
 - name: Add haproxy apt key
   ansible.builtin.apt_key:
