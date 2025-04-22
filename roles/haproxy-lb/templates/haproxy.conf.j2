@@ -253,11 +253,6 @@ backend {{ site }}
     {% endfor %}
     {% endif %}
 
-    {% if hap_clusters[hap_sites[site].cluster]["nodeGroup"] is defined %}
-    {% for server in groups[hap_clusters[hap_sites[site].cluster].nodeGroup] %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
-    {% endfor %}
-    {% endif %}
     
     {% if hap_clusters[hap_sites[site].cluster]["nodeGroup"] is defined %}
         {% if hap_clusters[hap_sites[site].cluster].nodeGroup is string %}
