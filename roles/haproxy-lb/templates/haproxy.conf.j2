@@ -260,6 +260,7 @@ backend {{ site }}
     {% endif %}
     
     {% if hap_clusters[hap_sites[site].cluster]["nodeGroups"] is defined %}
+        # Using nodegroups
         {% set first_group = hap_clusters[hap_sites[site].cluster].nodeGroups[0] %}
         {% set target_servers = groups[first_group] | intersect(hap_clusters[hap_sites[site].cluster].nodeGroups[1:] | map('extract', groups) | list) %}
         {% for server in target_servers %}
