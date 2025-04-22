@@ -337,14 +337,16 @@ backend tcp_{{ tun }}
     
     {% set node_groups = hap_clusters[hap_tunnels[tun].cluster].nodeGroups %}
     {% if node_groups | length > 0 %}
-      {% set target_servers = groups[node_groups[0]] %}
+      {% set outer_target_servers = groups[node_groups[0]] %}
+
+      {% set ns = namespace(servers=outer_target_servers) %}
       # start group {{ node_groups[0] }}
       # {{ target_servers | join(', ')}}
       {% for group_name in node_groups[1:] %}
       # intersecting {{ group_name }}
-          {% set target_servers = target_servers | intersect(groups[group_name]) %}
-      # {{ target_servers | join(', ')}}
+          {% set ns.servers = ns.servers | intersect(groups[group_name]) %}
       {% endfor %}
+      {% set target_servers = ns.servers %}
     {% else %}
       {% set target_servers = [] %}
     {% endif %}
