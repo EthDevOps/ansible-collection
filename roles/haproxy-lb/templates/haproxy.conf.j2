@@ -341,7 +341,6 @@ backend tcp_{{ tun }}
 
       {% set ns = namespace(servers=outer_target_servers) %}
       # start group {{ node_groups[0] }}
-      # {{ target_servers | join(', ')}}
       {% for group_name in node_groups[1:] %}
       # intersecting {{ group_name }}
           {% set ns.servers = ns.servers | intersect(groups[group_name]) %}
