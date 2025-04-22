@@ -335,7 +335,7 @@ backend tcp_{{ tun }}
     {% if hap_clusters[hap_tunnels[tun].cluster]["nodeGroups"] is defined %}
     # using nodegroups
     
-    {% set node_groups = hap_clusters[hap_sites[site].cluster].nodeGroups %}
+    {% set node_groups = hap_clusters[hap_tunnels[tun].cluster].nodeGroups %}
     {% if node_groups | length > 0 %}
       {% set target_servers = groups[node_groups[0]] %}
       {% for group_name in node_groups[1:] %}
