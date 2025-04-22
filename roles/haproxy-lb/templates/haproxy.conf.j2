@@ -334,8 +334,19 @@ backend tcp_{{ tun }}
     
     {% if hap_clusters[hap_tunnels[tun].cluster]["nodeGroups"] is defined %}
     # using nodegroups
-    {% set first_group = hap_clusters[hap_tunnels[tun].cluster].nodeGroups[0] %}
-    {% set target_servers = groups[first_group] | intersect(hap_clusters[hap_tunnels[tun].cluster].nodeGroups[1:] | map('extract', groups) | list) %}
+    
+    {% set node_groups = hap_clusters[hap_sites[site].cluster].nodeGroups %}
+    {% if node_groups | length > 0 %}
+      {% set target_servers = groups[node_groups[0]] %}
+      {% for group_name in node_groups[1:] %}
+          {% set target_servers = target_servers | intersect(groups[group_name]) %}
+      {% endfor %}
+    {% else %}
+      {% set target_servers = [] %}
+    {% endif %}
+    
+    
+    
     {% for server in target_servers %}
     server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_tunnels[tun].cluster_port }} 
     {% endfor %}
