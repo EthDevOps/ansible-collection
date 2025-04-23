@@ -168,6 +168,18 @@ frontend fe_{{ tun }}
     default_backend tcp_{{ tun }}
 {% endfor %}
 
+{% for cluster in hap_k8s_services %}
+
+{% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-tcp"] is defined %} 
+
+frontend fe_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    bind [::]:{{ svc.metadata.annotations["ethquokkaops.io/expose-on-port"] }} v4v6
+    mode tcp
+    option tcplog
+    default_backend tcp_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+{% endfor %}
+
+
 ############
 # BACKENDS #
 ############
@@ -274,7 +286,7 @@ backend {{ site }}
 {% for cluster in hap_k8s_services %}
 {% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-public"] is defined and svc.metadata.annotations["ethquokkaops.io/domain"] is defined %}
 
-backend k8s_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     balance roundrobin
     option forwardfor
     option forwarded
@@ -303,10 +315,17 @@ backend k8s_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name
     default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('30') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'alpn h2,http/1.1' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}{{ loop.index if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}
 
 
-    server metallb_svc {{ svc.status.loadBalancer.ingress[0].ip}}:{{ svc.spec.ports[0].port }}
+    server metallb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip}}:{{ svc.spec.ports[0].port }}
 
+{% endfor %}
 
+{% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-tcp"] is defined %}
+backend tcp_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    mode tcp
+    balance roundrobin
 
+    default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('30') }} fall 3 rise 2
+    server metallb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip}}:{{ svc.spec.ports[0].port }}
 {% endfor %}
 {% endfor %}
 
