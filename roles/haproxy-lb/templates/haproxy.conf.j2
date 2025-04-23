@@ -169,7 +169,6 @@ frontend fe_{{ tun }}
 {% endfor %}
 
 {% for cluster in hap_k8s_services %}
-
 {% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-tcp"] is defined %} 
 
 frontend fe_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
@@ -177,6 +176,8 @@ frontend fe_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name
     mode tcp
     option tcplog
     default_backend tcp_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+
+{% endfor %}
 {% endfor %}
 
 
