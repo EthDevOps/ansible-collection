@@ -329,7 +329,7 @@ backend tcp_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name
     balance roundrobin
 
     default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('30') }} fall 3 rise 2
-    server metallb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip}}:{{ svc.spec.ports[0].port }}
+    server metallb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip}}:{{ svc.metadata.annotations["ethquokkaops.io/service-port"] | default(svc.spec.ports[0].port) }}
 {% endfor %}
 {% endfor %}
 
