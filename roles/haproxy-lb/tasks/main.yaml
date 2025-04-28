@@ -50,7 +50,7 @@
 - name: download diffie-hellman parameters from mozilla
   ansible.builtin.get_url:
     url: https://ssl-config.mozilla.org/ffdhe2048.txt
-    dest: /var/lib/dhparams
+    dest: /var/lib/dhparam
     mode: '0644'
     force: yes
 
