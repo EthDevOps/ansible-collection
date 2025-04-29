@@ -1,5 +1,5 @@
 {
-    "acme_dns_url": "https://{{ acmedns_server }}",
+    "acme_dns_url": "{{ acmedns_server_url }}",
     "propagation_duration": "10s",
     "domains": {
       {% for domain in acmedns_cert_domains %}
