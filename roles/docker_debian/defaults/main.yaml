@@ -1,5 +1,7 @@
 # defaults/main.yml
-docker_repository: "https://download.docker.com/linux/debian"
-docker_gpg_key: "https://download.docker.com/linux/debian/gpg"
+# lower case is important because for Ubuntu it returns the value capitalized, but the repo/gpg key fetches are lowercase sensitive
+os: "{{ ansible_distribution | lower }}"
+docker_repository: "https://download.docker.com/linux/{{ os }}"
+docker_gpg_key: "https://download.docker.com/linux/{{ os }}/gpg"
 docker_package: "docker-ce"
 
