@@ -168,6 +168,24 @@ frontend http
 
    {% endfor %}
    {% endfor %}
+
+
+   {% for host, hostvars in lb_hostvars.items() %}
+   {% for svc in hostvars.services if svc.custom_fields.expose_mode is defined and svc.custom_fields.expose_mode == "l7" %}
+
+    # START SITE: {{ host }} => {{ svc.namee }}
+    {% set domains = svc.custom_fields.expose_domain.split(',') | map('trim') | list %}
+
+    {% for domain in domains %}
+    acl host_{{ host }}_{{ svc.name }} hdr_dom(host) -i {{ domain }}
+    {% endfor %}
+
+    use_backend {{ host }}_{{ svc.name }} if host_{{ host }}_{{ svc.name}}
+
+    # END SITE: {{ host }} => {{ svc.name }}
+
+   {% endfor %}
+   {% endfor %}
 {% endif %}
 
 ### TCP Frontends
@@ -390,3 +408,31 @@ backend tcp_{{ tun }}
 {% endfor %}
 {% endif %}
 
+{% for host, hostvars in lb_hostvars.items() %}
+{% for svc in hostvars.services if svc.custom_fields.expose_mode is defined and svc.custom_fields.expose_mode == "l7" %}
+backend {{ host }}_{{ svc.name }}
+    balance roundrobin
+    option forwardfor
+    option forwarded
+    
+    # keep websockets around for 2h
+    timeout tunnel 2h
+
+    # only keep clients in the connection queue for 1 minute
+    timeout queue 60s
+
+    option http-server-close
+    http-request set-header X-Forwarded-Port %[dst_port]
+    http-request add-header X-Forwarded-Proto https if { ssl_fc }
+
+    # Enable compression towards the client
+    filter compression
+    compression algo gzip
+    compression type text/css text/html text/javascript application/javascript text/plain text/xml application/json
+    compression offload
+
+    default-server check fall 3 rise 2
+    server {{ host }}_{{ svc.name }} {{ hostvars.primary_ip4 }}:{{ svc.ports[0] }}
+
+{% endfor %}
+{% endfor %}
