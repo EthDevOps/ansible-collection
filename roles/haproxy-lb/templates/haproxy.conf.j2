@@ -173,7 +173,7 @@ frontend http
    {% for host, hostvars in lb_hostvars.items() %}
    {% for svc in hostvars.services if svc.custom_fields.expose_mode is defined and svc.custom_fields.expose_mode == "l7" %}
 
-    # START SITE: {{ host }} => {{ svc.namee }}
+    # START SITE: {{ host }} => {{ svc.name }}
     {% set domains = svc.custom_fields.expose_domain.split(',') | map('trim') | list %}
 
     {% for domain in domains %}
