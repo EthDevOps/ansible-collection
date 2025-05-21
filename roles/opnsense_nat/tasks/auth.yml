@@ -1,4 +1,17 @@
 ---
+# Step 1: Get initial login page CSRF token
+- name: Get OPNsense login page to extract initial CSRF token
+  ansible.builtin.uri:
+    url: "https://{{ opnsense_host }}/index.php"
+    method: GET
+    validate_certs: "{{ opnsense_validate_certs | default(false) }}"
+    return_content: yes
+  register: login_page
+
+- name: Extract PHPSESSID from login response
+  ansible.builtin.set_fact:
+    opnsense_phpsessid: "{{ login_page.cookies.PHPSESSID }}"
+
 # Step 2: Login to OPNsense
 - name: Login to OPNsense
   ansible.builtin.uri:
@@ -7,13 +20,16 @@
     validate_certs: "{{ opnsense_validate_certs | default(false) }}"
     headers:
       Content-Type: application/x-www-form-urlencoded
+      Cookie: "PHPSESSID={{ opnsense_phpsessid }}"
     body_format: form-urlencoded
     body:
       usernamefld: "{{ opnsense_username }}"
       passwordfld: "{{ opnsense_password }}"
-      login: "1"
+      login: "Sign in"
+      "{{ login_csrf_name }}": "{{ login_csrf_value }}"
     status_code: [200, 302]
   register: login_response
+  no_log: true
 
 - name: Extract PHPSESSID from login response
   ansible.builtin.set_fact:
