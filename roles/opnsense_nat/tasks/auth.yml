@@ -29,18 +29,15 @@
       "{{ login_csrf_name }}": "{{ login_csrf_value }}"
     status_code: [200, 302]
   register: login_response
-  no_log: true
 
 - name: Extract PHPSESSID from login response
   ansible.builtin.set_fact:
     opnsense_phpsessid: "{{ login_response.cookies.PHPSESSID }}"
-  no_log: true
 
 - name: Verify login success
   ansible.builtin.fail:
     msg: "Failed to login to OPNsense"
   when: not login_response.cookies.PHPSESSID is defined
-  no_log: true
 
 # Step 3: Get NAT page CSRF token
 - name: Get NAT page to extract CSRF token
@@ -52,13 +49,11 @@
       Cookie: "PHPSESSID={{ opnsense_phpsessid }}"
     return_content: yes
   register: nat_page
-  no_log: true
 
 - name: Extract NAT page CSRF token
   ansible.builtin.set_fact:
     csrf_token_name: "{{ nat_page.content | regex_search('<input type=\"hidden\" name=\"([^\"]+)\" value=\"[^\"]+\"', '\\1') | first }}"
     csrf_token_value: "{{ nat_page.content | regex_search('<input type=\"hidden\" name=\"[^\"]+\" value=\"([^\"]+)\"', '\\1') | first }}"
-  no_log: true
 
 - name: Debug NAT page CSRF token (remove in production)
   ansible.builtin.debug:
