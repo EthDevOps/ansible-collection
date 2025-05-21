@@ -1,0 +1,36 @@
+---
+- name: Include authentication tasks
+  ansible.builtin.include_tasks:
+    file: auth.yml
+  when: opnsense_phpsessid is not defined or csrf_token is not defined
+
+- name: Ensure OPNsense DNAT rules are configured
+  ansible.builtin.uri:
+    url: "https://{{ opnsense_host }}/firewall_nat_edit.php"
+    method: POST
+    validate_certs: "{{ opnsense_validate_certs | default(false) }}"
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+      Cookie: "PHPSESSID={{ opnsense_phpsessid }}"
+    body_format: form-urlencoded
+    body:
+      interface: "{{ item.interface | default(['wan']) }}"
+      ipprotocol: "{{ item.ipprotocol | default('inet') }}"
+      protocol: "{{ item.protocol }}"
+      src: "{{ item.src | default('any') }}"
+      srcbeginport: "{{ item.src_port_start | default('any') }}"
+      srcendport: "{{ item.src_port_end | default('any') }}"
+      dst: "{{ item.destination }}"
+      dstbeginport: "{{ item.dst_port_start }}"
+      dstendport: "{{ item.dst_port_end }}"
+      target: "{{ item.target }}"
+      local-port: "{{ item.local_port }}"
+      descr: "{{ item.description }}"
+      natreflection: "{{ item.nat_reflection | default('default') }}"
+      associated-rule-id: "{{ item.associated_rule_id | default('add-associated') }}"
+      Submit: "Save"
+      after: "{{ item.after | default('') }}"
+      "{{ csrf_token_name }}": "{{ csrf_token_value }}"
+    status_code: [200, 302]
+  loop: "{{ opnsense_nat_rules }}"
+  no_log: true  # Hide sensitive information in logs

@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  role_name: opnsense_nat
+  author: your_name
+  description: Manages NAT rules in OPNsense firewalls
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: OPNsense
+      versions:
+        - all
+  galaxy_tags:
+    - networking
+    - firewall
+    - opnsense
+    - nat
+
+dependencies: []
