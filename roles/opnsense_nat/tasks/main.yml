@@ -2,7 +2,6 @@
 - name: Include authentication tasks
   ansible.builtin.include_tasks:
     file: auth.yml
-  when: opnsense_phpsessid is not defined or csrf_token is not defined
 
 - name: Ensure OPNsense DNAT rules are configured
   ansible.builtin.uri:
@@ -33,4 +32,3 @@
       "{{ csrf_token_name }}": "{{ csrf_token_value }}"
     status_code: [200, 302]
   loop: "{{ opnsense_nat_rules }}"
-  no_log: true  # Hide sensitive information in logs
