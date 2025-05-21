@@ -15,18 +15,3 @@ csrf_token: ""          # Optional: CSRF token from OPNsense
 
 # Example NAT rules (should be overridden in your playbook)
 opnsense_nat_rules: []
-  - interface: ["wan"]
-    ipprotocol: "inet"
-    protocol: "udp"
-    src: "any"
-    src_port_start: "any"
-    src_port_end: "any"
-    destination: "212.99.218.67"
-    dst_port_start: "32007"
-    dst_port_end: "32007"
-    target: "10.128.2.46"
-    local_port: "32007"
-    description: "test-iac2"
-    nat_reflection: "default"
-    associated_rule_id: "add-associated"
-    after: "9"  # Optional: position where to insert the rule
