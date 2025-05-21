@@ -12,6 +12,11 @@
   ansible.builtin.set_fact:
     opnsense_phpsessid: "{{ login_page.cookies.PHPSESSID }}"
 
+- name: Extract Login page CSRF token
+  ansible.builtin.set_fact:
+    csrf_token_name: "{{ login_page.content | regex_search('<input type=\"hidden\" name=\"([^\"]+)\" value=\"[^\"]+\"', '\\1') | first }}"
+    csrf_token_value: "{{ login_page.content | regex_search('<input type=\"hidden\" name=\"[^\"]+\" value=\"([^\"]+)\"', '\\1') | first }}"
+
 # Step 2: Login to OPNsense
 - name: Login to OPNsense
   ansible.builtin.uri:
@@ -23,6 +28,7 @@
       Cookie: "PHPSESSID={{ opnsense_phpsessid }}"
     body_format: form-urlencoded
     body:
+      "{{ csrf_token_name }}": "{{ csrf_token_value }}"
       usernamefld: "{{ opnsense_username }}"
       passwordfld: "{{ opnsense_password }}"
       login: "1"
