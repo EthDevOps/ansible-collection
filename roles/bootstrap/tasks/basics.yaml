@@ -12,6 +12,11 @@
     dest: /etc/hosts
     line: '{{ ansible_host }} {{ inventory_hostname }}'
 
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600  # Consider cache valid for 1 hour
+
 - name: make sure important tools are installed
   apt:
     name:
