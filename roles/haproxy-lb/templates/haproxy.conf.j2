@@ -180,7 +180,7 @@ frontend http
     acl host_{{ host }}_{{ svc.name }} hdr_dom(host) -i {{ domain }}
     {% endfor %}
     
-    {% if svc.custom_fields.expose_auth is defined and svc.custom_fields.expose_auth != "none" %}
+    {% if svc.custom_fields.expose_auth is defined and svc.custom_fields.expose_auth != "none" and svc.custom_fields.expose_auth != "" and svc.custom_fields.expose_auth is not none %}
     http-request auth if host_{{ host }}_{{ svc.name }} !{ http_auth({{ svc.custom_fields.expose_auth }}) }
     {% endif %}
 
