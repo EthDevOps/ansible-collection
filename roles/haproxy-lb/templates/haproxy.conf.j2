@@ -170,25 +170,36 @@ frontend http
    {% endfor %}
 
 
+   {# Group services by domain for load balancing #}
+   {% set domain_groups = {} %}
    {% for host, hostvars in lb_hostvars.items() %}
    {% for svc in hostvars.services if svc.custom_fields.expose_mode is defined and svc.custom_fields.expose_mode == "l7" %}
+   {% set domains = svc.custom_fields.expose_domain.split(',') | map('trim') | list %}
+   {% for domain in domains %}
+   {% if domain not in domain_groups %}
+   {% set _ = domain_groups.update({domain: []}) %}
+   {% endif %}
+   {% set _ = domain_groups[domain].append({'host': host, 'svc': svc, 'hostvars': hostvars}) %}
+   {% endfor %}
+   {% endfor %}
+   {% endfor %}
 
-    # START SITE: {{ host }} => {{ svc.name }}
-    {% set domains = svc.custom_fields.expose_domain.split(',') | map('trim') | list %}
+   {# Generate ACLs and routing for each domain group #}
+   {% for domain, services in domain_groups.items() %}
+   {% set first_service = services[0] %}
+   {% set backend_name = 'lb_' + (domain | replace('.', '_') | replace('-', '_')) %}
 
-    {% for domain in domains %}
-    acl host_{{ host }}_{{ svc.name }} hdr_dom(host) -i {{ domain }}
-    {% endfor %}
+    # START DOMAIN GROUP: {{ domain }} ({{ services | length }} service(s))
+    acl host_{{ backend_name }} hdr_dom(host) -i {{ domain }}
     
-    {% if svc.custom_fields.expose_auth is defined and svc.custom_fields.expose_auth != "none" and svc.custom_fields.expose_auth != "" and svc.custom_fields.expose_auth is not none %}
-    http-request auth if host_{{ host }}_{{ svc.name }} !{ http_auth({{ svc.custom_fields.expose_auth }}) }
+    {% if first_service.svc.custom_fields.expose_auth is defined and first_service.svc.custom_fields.expose_auth != "none" and first_service.svc.custom_fields.expose_auth != "" and first_service.svc.custom_fields.expose_auth is not none %}
+    http-request auth if host_{{ backend_name }} !{ http_auth({{ first_service.svc.custom_fields.expose_auth }}) }
     {% endif %}
 
-    use_backend {{ host }}_{{ svc.name }} if host_{{ host }}_{{ svc.name}}
+    use_backend {{ backend_name }} if host_{{ backend_name }}
 
-    # END SITE: {{ host }} => {{ svc.name }}
+    # END DOMAIN GROUP: {{ domain }}
 
-   {% endfor %}
    {% endfor %}
 {% endif %}
 
@@ -412,9 +423,10 @@ backend tcp_{{ tun }}
 {% endfor %}
 {% endif %}
 
-{% for host, hostvars in lb_hostvars.items() %}
-{% for svc in hostvars.services if svc.custom_fields.expose_mode is defined and svc.custom_fields.expose_mode == "l7" %}
-backend {{ host }}_{{ svc.name }}
+{# Create shared backends for load balancing services with same domain #}
+{% for domain, services in domain_groups.items() %}
+{% set backend_name = 'lb_' + (domain | replace('.', '_') | replace('-', '_')) %}
+backend {{ backend_name }}
     balance roundrobin
     option forwardfor
     option forwarded
@@ -436,7 +448,10 @@ backend {{ host }}_{{ svc.name }}
     compression offload
 
     default-server check fall 3 rise 2
-    server {{ host }}_{{ svc.name }} {{ hostvars.primary_ip4 }}:{{ svc.ports[0] }}
+    
+    # Load balanced servers for domain: {{ domain }}
+    {% for service_info in services %}
+    server {{ service_info.host }}_{{ service_info.svc.name }} {{ service_info.hostvars.primary_ip4 }}:{{ service_info.svc.ports[0] }}
+    {% endfor %}
 
-{% endfor %}
 {% endfor %}
