@@ -33,7 +33,7 @@ proxy_service:
   https_keypairs_reload_interval: 0s
   acme: {}
 app_service:
-  enabled: "{{ 'yes' if teleport_apps | length > 0 else 'no' }}"
+  enabled: "{{ 'yes' if (teleport_apps | length > 0) or (services | selectattr('custom_fields.expose_mode', 'defined') | selectattr('custom_fields.expose_mode', 'equalto', 'teleport') | list | length > 0) else 'no' }}"
   apps:
 {% for app in teleport_apps %}
   -  name: "{{ app.name }}"
