@@ -1,5 +1,4 @@
 - name: reload teleport
-  when: not via_teleport | bool
   systemd:
     name: teleport
-    state: restarted
+    state: reloaded
