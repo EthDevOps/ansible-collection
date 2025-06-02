@@ -143,10 +143,14 @@ frontend http
     # START SITE: {{ cluster.item }} => {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     {% set domains = svc.metadata.annotations["ethquokkaops.io/domain"].split(',') | map('trim') | list %}
     {% for domain in domains %}
+    {% if svc.metadata.annotations["ethquokkaops.io/match-exact"] is defined %}
+    acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr(host) -i {{ domain }}
+    {% else %}
     acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr_dom(host) -i {{ domain }}
     {% if svc.metadata.annotations["ethquokkaops.io/allow-subdomains"] is defined %}
     acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr_dom(host) -i -m end .{{ domain }}
     {% endif %}
+    
     {% endfor %}
     
     {% if svc.metadata.annotations["ethquokkaops.io/auth-group"] is defined %}
