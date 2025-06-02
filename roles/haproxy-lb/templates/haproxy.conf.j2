@@ -150,6 +150,7 @@ frontend http
     {% if svc.metadata.annotations["ethquokkaops.io/allow-subdomains"] is defined %}
     acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr_dom(host) -i -m end .{{ domain }}
     {% endif %}
+    {% endif %}
     
     {% endfor %}
     
