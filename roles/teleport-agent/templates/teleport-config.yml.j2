@@ -39,9 +39,14 @@ app_service:
   -  name: "{{ app.name }}"
      uri: "{{ app.url }}"
      public_addr: "{{ app.name }}.teleport.ethquokkaops.io"
+     labels:
+       tenant: {{ tenants[0] }}
 {% endfor %}
 {% for svc in services if svc.custom_fields.expose_mode == "teleport" %}
   -  name: "{{ svc.custom_fields.teleport_name }}"
      uri: "http://127.0.0.1:{{ svc.ports[0] }}"
      public_addr: "{{ svc.custom_fields.teleport_name }}.teleport.ethquokkaops.io"
+     labels:
+       tenant: {{ tenants[0] }}
+    
 {% endfor %}
