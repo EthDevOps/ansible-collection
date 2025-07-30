@@ -30,6 +30,16 @@
     update_cache: yes
   become: true
 
+- name: Create docker config directory
+  file:
+    path: /etc/docker
+    state: directory
+
+- name: Generate Docker Configuation
+  template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+
 - name: Install Docker
   ansible.builtin.apt:
     name: "{{ docker_package }}"
