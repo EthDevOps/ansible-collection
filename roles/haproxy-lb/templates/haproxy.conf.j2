@@ -461,7 +461,7 @@ backend {{ backend_name }}
 
     default-server check fall 3 rise 2
     
-    {% if service_info.svc.balance_mode is defined and service_info.svc.balance_mode == "backup" %}
+    {% if service_info.svc.custom_fields.balance_mode is defined and service_info.svc.custom_fields.balance_mode == "backup" %}
     balance first
     # Special health check that verifies mirror status
     option httpchk GET /status
