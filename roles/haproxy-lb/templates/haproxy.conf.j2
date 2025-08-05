@@ -162,7 +162,7 @@ frontend http
     acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ svc.metadata.annotations["ethquokkaops.io/path"] }}
     {% endif %}
     
-    {% if svc.metadata.annotations["ethquokkaops.io/internal-only"] %}
+    {% if svc.metadata.annotations["ethquokkaops.io/internal-only"] is defined %}
     http-request deny if { hdr(host) -i {{ domain }} } !{ src 10.128.0.0/9 }
     {% endif %}
 
