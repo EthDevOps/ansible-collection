@@ -161,6 +161,10 @@ frontend http
     {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
     acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ svc.metadata.annotations["ethquokkaops.io/path"] }}
     {% endif %}
+    
+    {% if svc.metadata.annotations["ethquokkaops.io/internal-only"] %}
+    http-request deny if { hdr(host) -i {{ domain }} } !{ src 10.128.0.0/9 }
+    {% endif %}
 
     {% if svc.metadata.annotations["ethquokkaops.io/use_cache"] is defined and svc.metadata.annotations["ethquokkaops.io/use_cache"] == 'true' %}
     http-request cache-use global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
@@ -196,7 +200,11 @@ frontend http
 
     # START DOMAIN GROUP: {{ domain }} ({{ services | length }} service(s))
     acl host_{{ backend_name }} hdr_dom(host) -i {{ domain }}
-    
+   
+    {% if first_service.svc.custom_fields.internal_only is defined and first_service.svc.custom_fields.internal_only %}
+    http-request deny if { hdr(host) -i {{ domain }} } !{ src 10.128.0.0/9 }
+    {% endif %}
+
     {% if first_service.svc.custom_fields.expose_auth is defined and first_service.svc.custom_fields.expose_auth != "none" and first_service.svc.custom_fields.expose_auth != "" and first_service.svc.custom_fields.expose_auth is not none %}
     http-request auth if host_{{ backend_name }} !{ http_auth({{ first_service.svc.custom_fields.expose_auth }}) }
     {% endif %}
