@@ -440,7 +440,6 @@ backend tcp_{{ tun }}
 {% for domain, services in domain_groups.items() %}
 {% set backend_name = 'lb_' + (domain | replace('.', '_') | replace('-', '_')) %}
 backend {{ backend_name }}
-    balance roundrobin
     option forwardfor
     option forwarded
     
@@ -462,9 +461,28 @@ backend {{ backend_name }}
 
     default-server check fall 3 rise 2
     
+    {% if service_info.svc.balance_mode is defined and service_info.svc.balance_mode == "backup" %}
+    balance first
+    # Special health check that verifies mirror status
+    option httpchk GET /status
+    http-check expect string READY
+    
+    # Load balanced servers for domain: {{ domain }}
+    {% for service_info in services %}
+    {% if loop.first %}
+    server {{ service_info.host }}_{{ service_info.svc.name }} {{ service_info.hostvars.primary_ip4 }}:{{ service_info.svc.ports[0] }}
+    {% else %}
+    server {{ service_info.host }}_{{ service_info.svc.name }} {{ service_info.hostvars.primary_ip4 }}:{{ service_info.svc.ports[0] }} backup
+    {% endif %}
+    {% endfor %}
+
+    {% else %}
+    balance roundrobin
+    
     # Load balanced servers for domain: {{ domain }}
     {% for service_info in services %}
     server {{ service_info.host }}_{{ service_info.svc.name }} {{ service_info.hostvars.primary_ip4 }}:{{ service_info.svc.ports[0] }}
     {% endfor %}
+    {% endif %}
 
 {% endfor %}
