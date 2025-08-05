@@ -201,7 +201,7 @@ frontend http
     # START DOMAIN GROUP: {{ domain }} ({{ services | length }} service(s))
     acl host_{{ backend_name }} hdr_dom(host) -i {{ domain }}
    
-    {% if first_service.svc.custom_fields.internal_only is defined and first_service.svc.custom_fields.internal_only %}
+    {% if first_service.svc.custom_fields.internal_only is defined and first_service.svc.custom_fields.internal_only == "true" %}
     http-request deny if { hdr(host) -i {{ domain }} } !{ src 10.128.0.0/9 }
     {% endif %}
 
