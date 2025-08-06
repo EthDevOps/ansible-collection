@@ -11,6 +11,11 @@ sources:
   logs_journal:
     type: journald
 
+  logs_apt:
+    type: file
+    include:
+      - /var/log/apt/history.log
+
 {% if docker_installed %}
   logs_docker:
     type: docker_logs
