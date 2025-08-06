@@ -1,0 +1,13 @@
+---
+exclude_paths:
+  - .cache/
+  - .github/
+  - docs/
+
+warn_list:
+  - yaml[line-length]
+  - name[casing]
+
+skip_list:
+  - risky-file-permissions
+  - no-changed-when

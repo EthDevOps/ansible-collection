@@ -1,0 +1,81 @@
+name: Release and Build Collection
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+        
+    - name: Install Ansible
+      run: |
+        python -m pip install --upgrade pip
+        pip install ansible-core
+        
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+    - name: Update galaxy.yml version
+      run: |
+        sed -i "s/^version:.*/version: ${{ steps.get_version.outputs.VERSION }}/" galaxy.yml
+        
+    - name: Build collection
+      run: |
+        ansible-galaxy collection build --force
+        
+    - name: Get collection filename
+      id: get_filename
+      run: |
+        COLLECTION_FILE=$(ls ethereum-quokkaops-*.tar.gz)
+        echo "FILENAME=$COLLECTION_FILE" >> $GITHUB_OUTPUT
+        
+    - name: Create Release
+      uses: actions/create-release@v1
+      id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ steps.get_version.outputs.VERSION }}
+        draft: false
+        prerelease: false
+        body: |
+          ## Ansible Collection Release ${{ steps.get_version.outputs.VERSION }}
+          
+          This release contains the packaged Ansible collection that can be installed via:
+          
+          ```bash
+          ansible-galaxy collection install https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.get_filename.outputs.FILENAME }}
+          ```
+          
+          Or by adding to your `requirements.yml`:
+          
+          ```yaml
+          collections:
+            - name: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.get_filename.outputs.FILENAME }}
+              type: url
+          ```
+          
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./${{ steps.get_filename.outputs.FILENAME }}
+        asset_name: ${{ steps.get_filename.outputs.FILENAME }}
+        asset_content_type: application/gzip
