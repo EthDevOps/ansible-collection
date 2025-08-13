@@ -4,4 +4,4 @@ os: "{{ ansible_distribution | lower }}"
 docker_repository: "https://download.docker.com/linux/{{ os }}"
 docker_gpg_key: "https://download.docker.com/linux/{{ os }}/gpg"
 docker_package: "docker-ce"
-
+docker_registry_mirror: ""
