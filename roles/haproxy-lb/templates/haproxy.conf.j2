@@ -72,6 +72,7 @@ frontend prometheus
     no log
     http-request use-service prometheus-exporter if { path /metrics }
 
+{% set domain_groups = {} %}
 {% if hap_sites and hap_sites|length > 0 %}
 frontend http
     bind [::]:80 v4v6
@@ -180,7 +181,6 @@ frontend http
 
 
    {# Group services by domain for load balancing #}
-   {% set domain_groups = {} %}
    {% for host, hostvars in lb_hostvars.items() %}
    {% for svc in hostvars.services if svc.custom_fields.expose_mode is defined and svc.custom_fields.expose_mode == "l7" %}
    {% set domains = svc.custom_fields.expose_domain.split(',') | map('trim') | list %}
