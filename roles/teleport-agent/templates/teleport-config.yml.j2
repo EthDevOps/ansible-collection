@@ -57,7 +57,7 @@ windows_desktop_service:
 {% for desktop in teleport_desktops %}
   - name: "{{ desktop.name }}"
     ad: false
-    addr: "{{ dektop.ip }}"
+    addr: "{{ desktop.ip }}"
     labels:
       tenant: "{{ desktop.tenant }}"
       project: "{{ desktop.project }}"
