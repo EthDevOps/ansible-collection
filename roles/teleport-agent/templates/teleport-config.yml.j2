@@ -48,5 +48,19 @@ app_service:
      public_addr: "{{ svc.custom_fields.teleport_name }}.teleport.ethquokkaops.io"
      labels:
        tenant: {{ tenants[0] }}
-    
 {% endfor %}
+
+{% if (teleport_desktops | length > 0) %}
+windows_desktop_service:
+  enabled: true
+  static_hosts:
+{% for desktop in teleport_desktops %}
+  - name: "{{ desktop.name }}"
+    ad: false
+    addr: "{{ dektop.ip }}"
+    labels:
+      tenant: "{{ desktop.tenant }}"
+      project: "{{ desktop.project }}"
+
+{% endfor %}
+{% endif %}
