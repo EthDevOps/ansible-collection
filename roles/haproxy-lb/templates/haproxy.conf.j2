@@ -280,7 +280,6 @@ backend default
 
 {% for site in hap_sites %}
 backend {{ site }}
-    balance roundrobin
     option forwardfor
     option forwarded
     
@@ -315,9 +314,55 @@ backend {{ site }}
     cookie SERVER_USED insert indirect nocache
     {% endif %}
 
-    default-server check maxconn {{ hap_sites[site].max_conn | default('30') }} fall 3 rise 2 {{ 'ssl verify none' if hap_sites[site].sslbackend is defined else '' }} {{ 'alpn h2,http/1.1' if internalsites[site].http2 is defined else '' }} {{ 'cookie s' if hap_sites[site]["use_sticky"] is defined }}{{ loop.index if hap_sites[site]["use_sticky"] is defined }}
+    default-server check maxconn {{ hap_sites[site].max_conn | default('30') }} fall 3 rise 2 {{ 'ssl verify none' if hap_sites[site].sslbackend is defined else '' }} {{ 'alpn h2,http/1.1' if hap_sites[site].http2 is defined else '' }} {{ 'cookie s' if hap_sites[site]["use_sticky"] is defined }}{{ loop.index if hap_sites[site]["use_sticky"] is defined }}
 
 
+
+
+    {% if hap_sites[site].balance_mode is defined and hap_sites[site].balance_mode == "backup" %}
+    balance first
+    # Special health check that verifies mirror status
+    option httpchk GET /status
+    http-check expect string READY
+    
+    {% if hap_clusters[hap_sites[site].cluster]["nodes"] is defined %}
+    {% for server in hap_clusters[hap_sites[site].cluster].nodes %}
+    {% if loop.first %}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
+    {% else %}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} backup
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+
+    {% if hap_clusters[hap_sites[site].cluster]["nodeGroup"] is defined %}
+    {% for server in groups[hap_clusters[hap_sites[site].cluster].nodeGroup] %}
+    {% if loop.first %}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
+    {% else %}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} backup
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+    
+    {% if hap_clusters[hap_sites[site].cluster]["nodeGroups"] is defined %}
+        # Using nodegroups
+        {% set first_group = hap_clusters[hap_sites[site].cluster].nodeGroups[0] %}
+        {% set target_servers = groups[first_group] | intersect(hap_clusters[hap_sites[site].cluster].nodeGroups[1:] | map('extract', groups) | list) %}
+        {% for server in target_servers %}
+        {% if loop.first %}
+        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
+        {% else %}
+        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} backup
+        {% endif %}
+        {% endfor %}
+    {% endif %}
+    
+
+    {% else %}
+    balance roundrobin
+    
+    # Load balanced servers for domain: {{ domain }}
     {% if hap_clusters[hap_sites[site].cluster]["nodes"] is defined %}
     {% for server in hap_clusters[hap_sites[site].cluster].nodes %}
     server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
@@ -339,7 +384,7 @@ backend {{ site }}
         {% endfor %}
     {% endif %}
 
-
+    {% endif %}
 {% endfor %}
 
 {% for cluster in hap_k8s_services %}
