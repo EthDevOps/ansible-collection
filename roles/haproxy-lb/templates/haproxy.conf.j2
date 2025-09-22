@@ -362,7 +362,6 @@ backend {{ site }}
     {% else %}
     balance roundrobin
     
-    # Load balanced servers for domain: {{ domain }}
     {% if hap_clusters[hap_sites[site].cluster]["nodes"] is defined %}
     {% for server in hap_clusters[hap_sites[site].cluster].nodes %}
     server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
