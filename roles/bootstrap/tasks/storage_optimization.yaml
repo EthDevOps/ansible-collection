@@ -7,8 +7,9 @@
 - name: Get unused disk devices
   shell: |
     lsblk -rno NAME,TYPE | awk '$2=="disk" {print $1}' | while read disk; do
-      if ! lsblk -rno NAME,TYPE,MOUNTPOINT /dev/$disk | awk 'NR>1 {if($3!="") exit 1}' && \
-         ! lsblk -rno NAME,TYPE /dev/$disk | awk 'NR>1 {if($2=="part") exit 1}'; then
+      has_mounted=$(lsblk -rno NAME,MOUNTPOINT /dev/$disk | awk 'NR>1 && $2!="" {print "yes"}')
+      has_partitions=$(lsblk -rno NAME,TYPE /dev/$disk | awk 'NR>1 && $2=="part" {print "yes"}')
+      if [ -z "$has_mounted" ] && [ -z "$has_partitions" ]; then
         echo "/dev/$disk"
       fi
     done | head -2
