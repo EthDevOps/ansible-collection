@@ -9,3 +9,7 @@
 
 - name: Setup SSHd
   import_tasks: ssh.yaml
+
+- name: Setup storage optimization
+  import_tasks: storage_optimization.yaml
+  when: storage_optimized is defined and storage_optimized | bool

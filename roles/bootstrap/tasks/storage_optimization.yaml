@@ -1,0 +1,68 @@
+---
+- name: Install mdadm package
+  package:
+    name: mdadm
+    state: present
+
+- name: Get unused disk devices
+  shell: |
+    lsblk -rno NAME,TYPE,MOUNTPOINT | awk '$2=="disk" && $3=="" {print "/dev/"$1}' | head -2
+  register: unused_disks
+  changed_when: false
+
+- name: Fail if less than 2 unused disks are found
+  fail:
+    msg: "Storage optimization requires exactly 2 unused disks, but found {{ unused_disks.stdout_lines | length }}"
+  when: unused_disks.stdout_lines | length != 2
+
+- name: Check if RAID array already exists
+  stat:
+    path: /dev/md0
+  register: raid_device
+
+- name: Create RAID0 array from unused disks
+  command: |
+    mdadm --create /dev/md0 --level=0 --raid-devices=2 {{ unused_disks.stdout_lines | join(' ') }}
+  when: not raid_device.stat.exists
+
+- name: Wait for RAID array to be ready
+  wait_for:
+    path: /dev/md0
+    timeout: 60
+  when: not raid_device.stat.exists
+
+- name: Check if RAID array is already formatted
+  command: blkid /dev/md0
+  register: raid_format_check
+  failed_when: false
+  changed_when: false
+
+- name: Format RAID array with ext4
+  filesystem:
+    fstype: ext4
+    dev: /dev/md0
+  when: raid_format_check.rc != 0
+
+- name: Create /data mount point
+  file:
+    path: /data
+    state: directory
+    mode: '0755'
+
+- name: Get UUID of RAID device
+  command: blkid -s UUID -o value /dev/md0
+  register: raid_uuid
+  changed_when: false
+
+- name: Mount RAID array at /data
+  mount:
+    path: /data
+    src: "UUID={{ raid_uuid.stdout }}"
+    fstype: ext4
+    opts: defaults,noatime
+    state: mounted
+
+- name: Save mdadm configuration
+  shell: mdadm --detail --scan >> /etc/mdadm/mdadm.conf
+  args:
+    creates: /etc/mdadm/mdadm.conf

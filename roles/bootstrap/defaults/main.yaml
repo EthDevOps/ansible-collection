@@ -1,2 +1,3 @@
 bootstrap_user_shell: /bin/bash
 additional_users: []
+storage_optimized: false
