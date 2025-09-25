@@ -6,7 +6,12 @@
 
 - name: Get unused disk devices
   shell: |
-    lsblk -rno NAME,TYPE,MOUNTPOINT | awk '$2=="disk" && $3=="" {print "/dev/"$1}' | head -2
+    lsblk -rno NAME,TYPE | awk '$2=="disk" {print $1}' | while read disk; do
+      if ! lsblk -rno NAME,TYPE,MOUNTPOINT /dev/$disk | awk 'NR>1 {if($3!="") exit 1}' && \
+         ! lsblk -rno NAME,TYPE /dev/$disk | awk 'NR>1 {if($2=="part") exit 1}'; then
+        echo "/dev/$disk"
+      fi
+    done | head -2
   register: unused_disks
   changed_when: false
 
