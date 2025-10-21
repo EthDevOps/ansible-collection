@@ -58,7 +58,6 @@ cache global_cache
   process-vary on
   max-secondary-entries 12
 
-
 listen stats
     bind 127.0.0.1:32700
     stats enable
@@ -255,7 +254,6 @@ backend backend-certbot
 backend default
     balance roundrobin
     option forwardfor
-    option http-server-close
 
     # Redirects
 
@@ -289,7 +287,6 @@ backend {{ site }}
     # only keep clients in the connection queue for 1 minute
     timeout queue 60s
 
-    option http-server-close
     http-request set-header X-Forwarded-Port %[dst_port]
     http-request add-header X-Forwarded-Proto https if { ssl_fc }
 
@@ -309,15 +306,11 @@ backend {{ site }}
     http-request set-path {{ hap_sites[site]["set_path"] }}
     {% endif %}
 
-
     {% if hap_sites[site]["use_sticky"] is defined %}
     cookie SERVER_USED insert indirect nocache
     {% endif %}
 
-    default-server check maxconn {{ hap_sites[site].max_conn | default('30') }} fall 3 rise 2 {{ 'ssl verify none' if hap_sites[site].sslbackend is defined else '' }} {{ 'alpn h2,http/1.1' if hap_sites[site].http2 is defined else '' }} {{ 'cookie s' if hap_sites[site]["use_sticky"] is defined }}{{ loop.index if hap_sites[site]["use_sticky"] is defined }}
-
-
-
+    default-server check maxconn {{ hap_sites[site].max_conn | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if hap_sites[site].sslbackend is defined else '' }} {{ 'alpn h2,http/1.1' if hap_sites[site].http2 is defined else '' }} {{ 'cookie s' if hap_sites[site]["use_sticky"] is defined }}{{ loop.index if hap_sites[site]["use_sticky"] is defined }}
 
     {% if hap_sites[site].balance_mode is defined and hap_sites[site].balance_mode == "backup" %}
     balance first
@@ -357,7 +350,6 @@ backend {{ site }}
         {% endif %}
         {% endfor %}
     {% endif %}
-    
 
     {% else %}
     balance roundrobin
@@ -400,7 +392,6 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     # only keep clients in the connection queue for 1 minute
     timeout queue 60s
 
-    option http-server-close
     http-request set-header X-Forwarded-Port %[dst_port]
     http-request add-header X-Forwarded-Proto https if { ssl_fc }
 
@@ -415,8 +406,7 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     cookie SERVER_USED insert indirect nocache
     {% endif %}
 
-    default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('30') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'alpn h2,http/1.1' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}{{ loop.index if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}
-
+    default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'alpn h2,http/1.1' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}{{ loop.index if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}
 
     server metallb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip}}:{{ svc.spec.ports[0].port }}
 
@@ -432,15 +422,13 @@ backend tcp_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name
 {% endfor %}
 {% endfor %}
 
-
 {% if hap_tunnels is defined %}
 {% for tun in hap_tunnels %}
-
 backend tcp_{{ tun }}
     mode tcp
     balance roundrobin
 
-    default-server check maxconn {{ hap_tunnels[tun].maxconn | default('30') }} fall 3 rise 2
+    default-server check maxconn {{ hap_tunnels[tun].maxconn | default('500') }} fall 3 rise 2
 
     {% if hap_clusters[hap_tunnels[tun].cluster]["nodes"] is defined %}
     {% for server in hap_clusters[hap_tunnels[tun].cluster].nodes %}
