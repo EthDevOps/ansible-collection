@@ -148,7 +148,12 @@ frontend http
     # END SITE: {{ site }}
 
    {% endfor %}
+
+    #### K8S services
+
    {% for cluster in hap_k8s_services %}
+
+    ## k8s cluster: {{ cluster.item }}
 
    {# Sort services: those with path annotations first (more specific routes) #}
    {% set services_with_path = cluster.resources | selectattr('metadata.annotations.ethquokkaops.io/expose-public', 'defined') | selectattr('metadata.annotations.ethquokkaops.io/domain', 'defined') | selectattr('metadata.annotations.ethquokkaops.io/path', 'defined') | list %}
