@@ -1,5 +1,6 @@
-#jinja2: lstrip_blocks: "True"
-global
+#jinja2: lstrip_blocks:True
+#jinja2: trim_blocks:True
+globali
     log /dev/log    local0
     log /dev/log    local1 notice
     chroot /var/lib/haproxy
@@ -171,7 +172,7 @@ frontend http
 
    {% for svc in sorted_services %}
 
-    # START SITE: {{ cluster.item }} => {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    # START K8s SITE: {{ cluster.item }} => {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     {% set domains = svc.metadata.annotations["ethquokkaops.io/domain"].split(',') | map('trim') | list %}
     {% for domain in domains %}
     {% if svc.metadata.annotations["ethquokkaops.io/match-exact"] is defined %}
