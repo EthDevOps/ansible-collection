@@ -1,6 +1,6 @@
 #jinja2: lstrip_blocks:True
 #jinja2: trim_blocks:True
-globali
+global
     log /dev/log    local0
     log /dev/log    local1 notice
     chroot /var/lib/haproxy
@@ -126,16 +126,13 @@ frontend http
     {% endif %}
     {% endfor %}
     {% set sorted_sites = sites_with_path + sites_without_path %}
-
     {% for site in sorted_sites %}
-
     # START SITE: {{ site }}
     {% for domain in hap_sites[site].domains %}
     acl host_{{ site }} hdr(host) -i {{ domain }}
     acl host_{{ site }} hdr(host) -i {{ domain }}:80
     acl host_{{ site }} hdr(host) -i {{ domain }}:443
     {% endfor %}
-
     {% if hap_sites[site].path is defined %}
     acl path_{{ site }} path -i -m beg {{ hap_sites[site].path }}
     {% endif %}
@@ -153,9 +150,7 @@ frontend http
     #### K8S services
 
    {% for cluster in hap_k8s_services %}
-
     ## k8s cluster: {{ cluster.item }}
-
    {# Sort services: those with path annotations first (more specific routes) #}
    {% set services_with_path = [] %}
    {% set services_without_path = [] %}
@@ -169,9 +164,7 @@ frontend http
    {% endif %}
    {% endfor %}
    {% set sorted_services = services_with_path + services_without_path %}
-
    {% for svc in sorted_services %}
-
     # START K8s SITE: {{ cluster.item }} => {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     {% set domains = svc.metadata.annotations["ethquokkaops.io/domain"].split(',') | map('trim') | list %}
     {% for domain in domains %}
@@ -183,34 +176,26 @@ frontend http
     acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr_dom(host) -i -m end .{{ domain }}
     {% endif %}
     {% endif %}
-    
     {% endfor %}
-    
     {% if svc.metadata.annotations["ethquokkaops.io/auth-group"] is defined %}
     http-request auth if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} !{ http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) }
     {% endif %}
-    
     {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
     acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ svc.metadata.annotations["ethquokkaops.io/path"] }}
     {% endif %}
-    
     {% if svc.metadata.annotations["ethquokkaops.io/internal-only"] is defined %}
     http-request deny if { hdr(host) -i {{ domain }} } !{ src 10.128.0.0/9 }
     {% endif %}
-
     {% if svc.metadata.annotations["ethquokkaops.io/use_cache"] is defined and svc.metadata.annotations["ethquokkaops.io/use_cache"] == 'true' %}
     http-request cache-use global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     http-response cache-store global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     {% endif %}
 
     use_backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %} path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}{% endif %}
-
     # END SITE: {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
 
    {% endfor %}
    {% endfor %}
-
-
    {# Group services by domain for load balancing #}
    {% for host, hostvars in lb_hostvars.items() %}
    {% for svc in hostvars.services if svc.custom_fields.expose_mode is defined and svc.custom_fields.expose_mode == "l7" %}
