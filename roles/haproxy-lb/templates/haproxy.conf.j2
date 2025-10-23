@@ -192,6 +192,7 @@ frontend http
     {% endif %}
 
     use_backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %} path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}{% endif %}
+    
     # END SITE: {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
 
    {% endfor %}
