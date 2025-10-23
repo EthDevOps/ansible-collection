@@ -155,13 +155,14 @@ frontend http
 
     ## k8s cluster: {{ cluster.item }}
 
-   {# Sort services: those with path annotations first (more specific routes) #}
-   {% set services_with_path = cluster.resources | selectattr('metadata.annotations.ethquokkaops.io/expose-public', 'defined') | selectattr('metadata.annotations.ethquokkaops.io/domain', 'defined') | selectattr('metadata.annotations.ethquokkaops.io/path', 'defined') | list %}
-   {% set services_without_path = cluster.resources | selectattr('metadata.annotations.ethquokkaops.io/expose-public', 'defined') | selectattr('metadata.annotations.ethquokkaops.io/domain', 'defined') | rejectattr('metadata.annotations.ethquokkaops.io/path', 'defined') | list %}
-   {% set sorted_services = services_with_path + services_without_path %}
+  # {# Sort services: those with path annotations first (more specific routes) #}
+  # {% set services_with_path = cluster.resources | selectattr('metadata.annotations.ethquokkaops.io/expose-public', 'defined') | selectattr('metadata.annotations.ethquokkaops.io/domain', 'defined') | selectattr('metadata.annotations.ethquokkaops.io/path', 'defined') | list %}
+   #{% set services_without_path = cluster.resources | selectattr('metadata.annotations.ethquokkaops.io/expose-public', 'defined') | selectattr('metadata.annotations.ethquokkaops.io/domain', 'defined') | rejectattr('metadata.annotations.ethquokkaops.io/path', 'defined') | list %}
+   #{% set sorted_services = services_with_path + services_without_path %}
 
-   {% for svc in sorted_services %}
+   #{% for svc in sorted_services %}
 
+   {% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-public"] is defined and svc.metadata.annotations["ethquokkaops.io/domain"] is defined %}
     # START SITE: {{ cluster.item }} => {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     {% set domains = svc.metadata.annotations["ethquokkaops.io/domain"].split(',') | map('trim') | list %}
     {% for domain in domains %}
