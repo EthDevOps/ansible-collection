@@ -293,6 +293,8 @@ backend default
     {% endfor %}
     {% endif %}
 
+    http-response return status 200 content-type "text/html" file /etc/haproxy/errors/default.http
+
 
 {% for site in hap_sites %}
 backend {{ site }}

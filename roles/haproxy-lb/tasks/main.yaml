@@ -36,15 +36,17 @@
 
 - name: copy error pages
   loop:
-    - { code: 400, msg: "Bad Request" }
-    - { code: 500, msg: "Internal Server Error" }
-    - { code: 502, msg: "Bad Gateway" }
-    - { code: 503, msg: "Service Unavailable" }
-    - { code: 504, msg: "Gateway Timeout" }
+    - 400
+    - 429
+    - 500
+    - 502
+    - 503
+    - 504
+    - default
   notify: "reload haproxy"
-  ansible.builtin.template:
-    src: templates/error.html.j2
-    dest: /etc/haproxy/errors/{{ item.code }}.http
+  ansible.builtin.copy:
+    src: files/{{ item }}.html
+    dest: /etc/haproxy/errors/{{ item }}.http
     mode: "0644"
 
 - name: download diffie-hellman parameters from mozilla

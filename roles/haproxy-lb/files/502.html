@@ -1,0 +1,325 @@
+HTTP/1.1 502 Bad Gateway
+Cache-Control: no-cache
+Connection: close
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bad Gateway - DCL1 Data Fortress</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background: #0a0e27;
+            color: #00ff9f;
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* Animated background grid */
+        .grid-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(rgba(0, 255, 159, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 159, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridMove 20s linear infinite;
+            z-index: 1;
+        }
+
+        @keyframes gridMove {
+            0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
+            100% { transform: perspective(500px) rotateX(60deg) translateY(50px); }
+        }
+
+        /* Glowing orbs */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.3;
+            z-index: 2;
+            animation: float 10s ease-in-out infinite;
+        }
+
+        .orb1 {
+            width: 300px;
+            height: 300px;
+            background: #ff00ff;
+            top: 10%;
+            left: 10%;
+            animation-delay: 0s;
+        }
+
+        .orb2 {
+            width: 200px;
+            height: 200px;
+            background: #00ffff;
+            bottom: 20%;
+            right: 15%;
+            animation-delay: 3s;
+        }
+
+        .orb3 {
+            width: 250px;
+            height: 250px;
+            background: #ff0080;
+            top: 50%;
+            right: 30%;
+            animation-delay: 6s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(30px, 30px); }
+            50% { transform: translate(-20px, 50px); }
+            75% { transform: translate(40px, -30px); }
+        }
+
+        /* Main container */
+        .container {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            padding: 2rem;
+            max-width: 800px;
+            background: rgba(10, 14, 39, 0.8);
+            border: 2px solid #00ff9f;
+            border-radius: 10px;
+            box-shadow:
+                0 0 20px rgba(0, 255, 159, 0.3),
+                inset 0 0 20px rgba(0, 255, 159, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .glitch-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 4rem;
+            font-weight: 900;
+            color: #ff0080;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+            text-shadow:
+                0 0 10px #ff0080,
+                0 0 20px #ff0080,
+                0 0 30px #ff0080,
+                0 0 40px #ff0080;
+            animation: flicker 3s infinite;
+        }
+
+        @keyframes flicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+                text-shadow:
+                    0 0 10px #ff0080,
+                    0 0 20px #ff0080,
+                    0 0 30px #ff0080,
+                    0 0 40px #ff0080;
+            }
+            20%, 24%, 55% {
+                text-shadow: none;
+            }
+        }
+
+        .error-code {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 8rem;
+            font-weight: 900;
+            color: #00ffff;
+            text-shadow:
+                0 0 10px #00ffff,
+                0 0 20px #00ffff,
+                0 0 30px #00ffff;
+            margin: 1rem 0;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .message {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            color: #00ff9f;
+            margin: 2rem 0;
+            text-shadow: 0 0 5px rgba(0, 255, 159, 0.5);
+        }
+
+        .status {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 0, 128, 0.2);
+            border: 1px solid #ff0080;
+            border-radius: 5px;
+            color: #ff0080;
+            font-weight: bold;
+            margin: 1rem 0;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0.5; }
+        }
+
+        .contact {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: rgba(0, 255, 159, 0.1);
+            border-left: 4px solid #00ff9f;
+            border-radius: 5px;
+        }
+
+        .contact h2 {
+            font-family: 'Orbitron', sans-serif;
+            color: #00ffff;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 10px #00ffff;
+        }
+
+        .contact p {
+            color: #00ff9f;
+            font-size: 1.1rem;
+        }
+
+        .contact a {
+            color: #ff0080;
+            text-decoration: none;
+            font-weight: bold;
+            text-shadow: 0 0 5px #ff0080;
+            transition: all 0.3s ease;
+        }
+
+        .contact a:hover {
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+        }
+
+        /* Scanline effect */
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                transparent 50%,
+                rgba(0, 255, 159, 0.05) 51%
+            );
+            background-size: 100% 4px;
+            z-index: 999;
+            pointer-events: none;
+            animation: scan 8s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(4px); }
+        }
+
+        .terminal-cursor {
+            display: inline-block;
+            width: 10px;
+            height: 1.2rem;
+            background: #00ff9f;
+            margin-left: 5px;
+            animation: cursor-blink 1s step-end infinite;
+        }
+
+        @keyframes cursor-blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            .error-code { font-size: 5rem; }
+            .message { font-size: 1rem; }
+            .container { padding: 1.5rem; }
+        }
+
+        @media (max-width: 480px) {
+            h1 { font-size: 2rem; }
+            .error-code { font-size: 4rem; }
+            .message { font-size: 0.9rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-background"></div>
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
+    <div class="scanline"></div>
+
+    <div class="container">
+        <div class="glitch-wrapper">
+            <h1>Bad Gateway</h1>
+        </div>
+
+        <div class="error-code">502</div>
+
+        <div class="status">
+            ⚠ Upstream Error<span class="terminal-cursor"></span>
+        </div>
+
+        <div class="message">
+            <p><strong>Connection established to DCL1 Data Fortress.</strong></p>
+            <p>The upstream server returned an invalid response.</p>
+            <p>The backend service may be misconfigured or experiencing issues.</p>
+        </div>
+
+        <div class="contact">
+            <h2>Need Assistance?</h2>
+            <p>You have reached the <strong>DCL1 Data Fortress</strong> ingress gateway.<br>
+            If this issue persists,<br>
+            please contact <strong>EF DevOps</strong> team.</p>
+        </div>
+    </div>
+
+    <script>
+        // Add subtle glitch effect on load
+        window.addEventListener('load', function() {
+            const h1 = document.querySelector('h1');
+            setInterval(() => {
+                if (Math.random() > 0.95) {
+                    h1.style.transform = `translate(${Math.random() * 4 - 2}px, ${Math.random() * 4 - 2}px)`;
+                    setTimeout(() => {
+                        h1.style.transform = 'translate(0, 0)';
+                    }, 50);
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>
