@@ -75,10 +75,12 @@ frontend prometheus
 {% set domain_groups = {} %}
 {% if hap_sites and hap_sites|length > 0 %}
 frontend http
-    bind *:80 v4v6
+    bind *:80
+    bind [::]:80 v6only
 
     {% if not hap_sites_insecure %}
-    bind *:443 v4v6 ssl crt /etc/certificates/ alpn h2,http/1.1
+    bind *:443 ssl crt /etc/certificates/ alpn h2,http/1.1
+    bind [::]:443 v6only ssl crt /etc/certificates/ alpn h2,http/1.1
     {% endif %}
     mode http
 
@@ -237,7 +239,8 @@ frontend http
 
 {% for tun in hap_tunnels %}
 frontend fe_{{ tun }}
-    bind *:{{ hap_tunnels[tun].port }} v4v6
+    bind *:{{ hap_tunnels[tun].port }}
+    bind [::]:{{ hap_tunnels[tun].port }} v6only
     mode tcp
     option tcplog
     default_backend tcp_{{ tun }}
@@ -247,7 +250,8 @@ frontend fe_{{ tun }}
 {% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-tcp"] is defined %} 
 
 frontend fe_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
-    bind *:{{ svc.metadata.annotations["ethquokkaops.io/expose-on-port"] }} v4v6
+    bind *:{{ svc.metadata.annotations["ethquokkaops.io/expose-on-port"] }}
+    bind [::]:{{ svc.metadata.annotations["ethquokkaops.io/expose-on-port"] }} v6only
     mode tcp
     option tcplog
     default_backend tcp_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
