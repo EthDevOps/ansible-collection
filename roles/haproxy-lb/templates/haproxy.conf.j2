@@ -125,7 +125,7 @@ frontend http
     {% for redirect in hap_redirects %}
     {% if redirect.src is defined %}
     {% set redirect_name = redirect.src[0] | replace('.', '_') | replace('-', '_') %}
-    {% set safe_target = redirect.target | replace('#', '%23') %}
+    {% set safe_target = redirect.target | replace('#', '%%23') %}
 
     # Redirect: {{ redirect.src | join(', ') }} -> {{ redirect.target }}
     {% for src_domain in redirect.src %}
@@ -137,7 +137,7 @@ frontend http
     {% if redirect.paths is defined %}
     {% for path_redir in redirect.paths %}
     acl redir_{{ redirect_name }}_path_{{ loop.index }} path {{ path_redir.path }}
-    {% set safe_path_target = path_redir.target | replace('#', '%23') %}
+    {% set safe_path_target = path_redir.target | replace('#', '%%23') %}
     {% if path_redir.target is match('^https?://') %}
     http-request redirect code {{ redirect.code }} location {{ safe_path_target }} if redir_{{ redirect_name }}_host redir_{{ redirect_name }}_path_{{ loop.index }}
     {% else %}
