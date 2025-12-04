@@ -136,21 +136,21 @@ frontend http
     {% if redirect.paths is defined %}
     {% for path_redir in redirect.paths %}
     acl redir_{{ redirect_name }}_path_{{ loop.index }} path {{ path_redir.path }}
-    http-request redirect code 301 location https://{{ redirect.target }}{{ path_redir.target }} if redir_{{ redirect_name }}_host redir_{{ redirect_name }}_path_{{ loop.index }}
+    http-request redirect code {{ redirect.code }} location https://{{ redirect.target }}{{ path_redir.target }} if redir_{{ redirect_name }}_host redir_{{ redirect_name }}_path_{{ loop.index }}
     {% endfor %}
 
     # Catch-all for domain (no specific path match)
     {% if redirect.preserve_uri is defined and redirect.preserve_uri %}
-    http-request redirect code 301 location https://{{ redirect.target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
+    http-request redirect code {{ redirect.code }} location https://{{ redirect.target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
     {% else %}
-    http-request redirect code 301 location https://{{ redirect.target }} if redir_{{ redirect_name }}_host
+    http-request redirect code {{ redirect.code }} location https://{{ redirect.target }} if redir_{{ redirect_name }}_host
     {% endif %}
     {% else %}
     # Simple domain redirect (no paths)
     {% if redirect.preserve_uri is defined and redirect.preserve_uri %}
-    http-request redirect code 301 location https://{{ redirect.target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
+    http-request redirect code {{ redirect.code }} location https://{{ redirect.target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
     {% else %}
-    http-request redirect code 301 location https://{{ redirect.target }} if redir_{{ redirect_name }}_host
+    http-request redirect code {{ redirect.code }} location https://{{ redirect.target }} if redir_{{ redirect_name }}_host
     {% endif %}
     {% endif %}
 
