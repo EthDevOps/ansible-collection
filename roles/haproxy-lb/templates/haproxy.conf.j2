@@ -117,6 +117,47 @@ frontend http
     # HSTS (63072000 seconds)
     http-response set-header Strict-Transport-Security max-age=63072000
 
+    # Capture request URI for redirect preservation
+    http-request capture req.uri len 512
+
+    # Structured Redirects (processed before backend routing)
+    {% if hap_redirects is defined and hap_redirects | length > 0 %}
+    {% for redirect in hap_redirects %}
+    {% if redirect.src is defined %}
+    {% set redirect_name = redirect.src[0] | replace('.', '_') | replace('-', '_') %}
+
+    # Redirect: {{ redirect.src | join(', ') }} -> {{ redirect.target }}
+    {% for src_domain in redirect.src %}
+    acl redir_{{ redirect_name }}_host hdr(host) -i {{ src_domain }}
+    acl redir_{{ redirect_name }}_host hdr(host) -i {{ src_domain }}:80
+    acl redir_{{ redirect_name }}_host hdr(host) -i {{ src_domain }}:443
+    {% endfor %}
+
+    {% if redirect.paths is defined %}
+    {% for path_redir in redirect.paths %}
+    acl redir_{{ redirect_name }}_path_{{ loop.index }} path {{ path_redir.path }}
+    http-request redirect code 301 location https://{{ redirect.target }}{{ path_redir.target }} if redir_{{ redirect_name }}_host redir_{{ redirect_name }}_path_{{ loop.index }}
+    {% endfor %}
+
+    # Catch-all for domain (no specific path match)
+    {% if redirect.preserve_uri is defined and redirect.preserve_uri %}
+    http-request redirect code 301 location https://{{ redirect.target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
+    {% else %}
+    http-request redirect code 301 location https://{{ redirect.target }} if redir_{{ redirect_name }}_host
+    {% endif %}
+    {% else %}
+    # Simple domain redirect (no paths)
+    {% if redirect.preserve_uri is defined and redirect.preserve_uri %}
+    http-request redirect code 301 location https://{{ redirect.target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
+    {% else %}
+    http-request redirect code 301 location https://{{ redirect.target }} if redir_{{ redirect_name }}_host
+    {% endif %}
+    {% endif %}
+
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+
     {# Sort sites: those with path defined first (more specific routes) #}
     {% set sites_with_path = [] %}
     {% set sites_without_path = [] %}
