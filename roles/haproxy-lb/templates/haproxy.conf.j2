@@ -118,7 +118,7 @@ frontend http
     http-response set-header Strict-Transport-Security max-age=63072000
 
     # Capture request URI for redirect preservation
-    http-request capture req.uri len 512
+    http-request capture path len 512
 
     # Structured Redirects (processed before backend routing)
     {% if hap_redirects is defined and hap_redirects | length > 0 %}
