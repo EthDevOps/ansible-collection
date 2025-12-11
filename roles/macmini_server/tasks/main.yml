@@ -1,27 +1,23 @@
 ---
 - name: Copy systemd service file
-  copy:
+  ansible.builtin.copy:
     src: servermode.service
     dest: /etc/systemd/system/server-mode.service
     owner: root
     group: root
-    mode: 0644
+    mode: "0644"
   notify:
     - Reload systemd
-
 - name: Enable and start the service
-  systemd:
+  ansible.builtin.systemd:
     name: server-mode
     state: started
-    enabled: yes
-
+    enabled: true
 - name: Set kernel parameters in /etc/default/grub
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/default/grub
     regexp: '^GRUB_CMDLINE_LINUX='
     line: 'GRUB_CMDLINE_LINUX="intel_iommu=on iommu=pt"'
-    backup: yes
+    backup: true
   notify:
     - Update GRUB
-
-
