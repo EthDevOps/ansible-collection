@@ -1,3 +1,4 @@
+---
 vector_extra_metrics: ""
-install_nodexporter: true
+vector_install_nodexporter: true
 vector_version: "0.51.1-1"

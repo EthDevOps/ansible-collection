@@ -1,66 +1,55 @@
+---
 - name: Get system architecture
   ansible.builtin.command: dpkg --print-architecture
-  register: system_arch
+  register: vector_system_arch
   changed_when: false
-  
 - name: Download Vector deb package
   ansible.builtin.get_url:
-    url: "https://apt.vector.dev/pool/v/ve/vector_{{ vector_version }}_{{ system_arch.stdout }}.deb"
-    dest: "/tmp/vector_{{ vector_version }}_{{ system_arch.stdout }}.deb"
+    url: "https://apt.vector.dev/pool/v/ve/vector_{{ vector_version }}_{{ vector_system_arch.stdout }}.deb"
+    dest: "/tmp/vector_{{ vector_version }}_{{ vector_system_arch.stdout }}.deb"
     mode: '0644'
-  
 - name: Install Vector using dpkg
   ansible.builtin.apt:
-    deb: "/tmp/vector_{{ vector_version }}_{{ system_arch.stdout }}.deb"
-    
+    deb: "/tmp/vector_{{ vector_version }}_{{ vector_system_arch.stdout }}.deb"
 - name: Clean up downloaded deb file
   ansible.builtin.file:
-    path: "/tmp/vector_{{ vector_version }}_{{ system_arch.stdout }}.deb"
+    path: "/tmp/vector_{{ vector_version }}_{{ vector_system_arch.stdout }}.deb"
     state: absent
-
-- name: copy vector multi systemd unit
-  copy:
+- name: Copy vector multi systemd unit
+  ansible.builtin.copy:
     src: vector-multi.service
     dest: /etc/systemd/system/vector-multi.service
-
-- name: reload systemd
-  systemd:
-    daemon-reload: true
-
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
 - name: Stop and disable stock vector
-  ignore_errors: yes
   ansible.builtin.systemd:
     name: vector
     state: stopped
     enabled: false
-
+  failed_when: false
 - name: Start and enable multi vector
-  ignore_errors: yes
   ansible.builtin.systemd:
     name: vector-multi
     state: started
     enabled: true
-
+  failed_when: false
 - name: Check if docker group exists
-  command: getent group docker
-  register: docker_group_check
-  ignore_errors: yes
-
+  ansible.builtin.command: getent group docker
+  register: vector_docker_group_check
+  changed_when: false
+  failed_when: false
 - name: Set fact if docker is installed
-  set_fact:
-    docker_installed: "{{ docker_group_check.rc == 0 }}"
-
+  ansible.builtin.set_fact:
+    vector_docker_installed: "{{ vector_docker_group_check.rc == 0 }}"
 - name: Add user to docker group if group exists
-  user:
+  ansible.builtin.user:
     name: vector
     groups: docker
-    append: yes
-  when: docker_group_check.rc == 0
-
+    append: true
+  when: vector_docker_group_check.rc == 0
 - name: Create config file
-  template:
+  ansible.builtin.template:
     src: vector.yaml.j2
     dest: /etc/vector/vector.yaml
   notify: Restart Vector
-
-
