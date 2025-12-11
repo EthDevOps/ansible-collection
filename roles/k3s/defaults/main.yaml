@@ -9,21 +9,11 @@ k3s_server_extra_args: >-
   --node-external-ip={{ hostvars[inventory_hostname]['primary_ip4'] }}
 k3s_agent_extra_args: >-
   --node-external-ip={{ hostvars[inventory_hostname]['primary_ip4'] }}
-
-# --flannel-iface=wg0
-
-# On an agent node:
-# --node-ip={{ wg0_ip_addr }}
-#
-
-
 # Enable this if you want to cleanup and uninstall the k3s service on the host
 k3s_cleanup: false
 # Enable this if you also want to remove the persisten volumes created by the "local-path" storage class
 k3s_cleanup_localpath_persistent_volumes: false
-
 k3s_etcd_enabled: false
-
 k3s_etcd_snapshot_enabled: false
 k3s_etcd_snapshot_schedule_cron: "0 */12 * * *"
 k3s_etcd_snapshot_retention: 5
