@@ -1,11 +1,11 @@
+---
 - name: Add forum domain to hosts file
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/hosts
-    line: "127.0.0.1 {{ forum_domain }}"
+    line: "127.0.0.1 {{ discourse_forum_domain }}"
     state: present
-
 - name: Template the vector sources file
-  template:
+  ansible.builtin.template:
     src: vector.yaml.j2
     dest: /etc/vector/discourse.yaml
-  notify: vector-reload
+  notify: Vector-reload
