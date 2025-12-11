@@ -1,73 +1,60 @@
+---
 name: Release and Build Collection
-
 on:
   push:
     tags:
       - 'v*.*.*'
-
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      
     steps:
-    - name: Checkout code
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: '3.x'
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      - name: Update galaxy.yml version
+        run: |
+          sed -i "s/^version:.*/version: ${{ steps.get_version.outputs.VERSION }}/" galaxy.yml
+      - name: Build collection
+        run: |
+          ansible-galaxy collection build --force
+      - name: Get collection filename
+        id: get_filename
+        run: |
+          COLLECTION_FILE=$(ls ethdevops-general-*.tar.gz)
+          echo "FILENAME=$COLLECTION_FILE" >> $GITHUB_OUTPUT
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        with:
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          files: ${{ steps.get_filename.outputs.FILENAME }}
+          body: |
+            ## Ansible Collection Release ${{ steps.get_version.outputs.VERSION }}
 
-    - name: Set up Python
-      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
-      with:
-        python-version: '3.x'
-        
-    - name: Install Ansible
-      run: |
-        python -m pip install --upgrade pip
-        pip install ansible-core
-        
-    - name: Extract version from tag
-      id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-      
-    - name: Update galaxy.yml version
-      run: |
-        sed -i "s/^version:.*/version: ${{ steps.get_version.outputs.VERSION }}/" galaxy.yml
-        
-    - name: Build collection
-      run: |
-        ansible-galaxy collection build --force
-        
-    - name: Get collection filename
-      id: get_filename
-      run: |
-        COLLECTION_FILE=$(ls ethdevops-general-*.tar.gz)
-        echo "FILENAME=$COLLECTION_FILE" >> $GITHUB_OUTPUT
-        
-    - name: Create Release and Upload Asset
-      uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
-      with:
-        name: Release ${{ steps.get_version.outputs.VERSION }}
-        files: ${{ steps.get_filename.outputs.FILENAME }}
-        body: |
-          ## Ansible Collection Release ${{ steps.get_version.outputs.VERSION }}
+            This release contains the packaged Ansible collection that can be installed via:
 
-          This release contains the packaged Ansible collection that can be installed via:
+            ```bash
+            ansible-galaxy collection install https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.get_filename.outputs.FILENAME }}
+            ```
 
-          ```bash
-          ansible-galaxy collection install https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.get_filename.outputs.FILENAME }}
-          ```
+            Or by adding to your `requirements.yml`:
 
-          Or by adding to your `requirements.yml`:
-
-          ```yaml
-          collections:
-            - name: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.get_filename.outputs.FILENAME }}
-              type: url
-          ```
-
-    - name: Publish to Ansible Galaxy
-      run: |
-        ansible-galaxy collection publish ${{ steps.get_filename.outputs.FILENAME }} --api-key ${{ secrets.ANSIBLE_GALAXY_API_TOKEN }}
-
-
-
+            ```yaml
+            collections:
+              - name: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.get_filename.outputs.FILENAME }}
+                type: url
+            ```
+      - name: Publish to Ansible Galaxy
+        run: |
+          ansible-galaxy collection publish ${{ steps.get_filename.outputs.FILENAME }} --api-key ${{ secrets.ANSIBLE_GALAXY_API_TOKEN }}
