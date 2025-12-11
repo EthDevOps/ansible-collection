@@ -32,7 +32,7 @@ jobs:
       - name: Get collection filename
         id: get_filename
         run: |
-          COLLECTION_FILE=$(ls ethdevops-general-*.tar.gz)
+          COLLECTION_FILE=$(ls elasticroentgen-ethdevops-*.tar.gz)
           echo "FILENAME=$COLLECTION_FILE" >> $GITHUB_OUTPUT
       - name: Create Release and Upload Asset
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
