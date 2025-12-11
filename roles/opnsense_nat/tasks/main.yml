@@ -2,15 +2,14 @@
 - name: Include authentication tasks
   ansible.builtin.include_tasks:
     file: auth.yml
-
 - name: Ensure OPNsense DNAT rules are configured
   ansible.builtin.uri:
-    url: "https://{{ opnsense_host }}/firewall_nat_edit.php"
+    url: "https://{{ opnsense_nat_host }}/firewall_nat_edit.php"
     method: POST
-    validate_certs: "{{ opnsense_validate_certs | default(false) }}"
+    validate_certs: "{{ opnsense_nat_validate_certs | default(false) }}"
     headers:
       Content-Type: application/x-www-form-urlencoded
-      Cookie: "PHPSESSID={{ opnsense_phpsessid }}"
+      Cookie: "PHPSESSID={{ opnsense_nat_phpsessid }}"
     body_format: form-urlencoded
     body:
       interface: "{{ item.interface | default(['wan']) }}"
@@ -29,6 +28,6 @@
       associated-rule-id: "{{ item.associated_rule_id | default('add-associated') }}"
       Submit: "Save"
       after: "{{ item.after | default('') }}"
-      "{{ csrf_token_name }}": "{{ csrf_token_value }}"
+      "{{ opnsense_nat_csrf_token_name }}": "{{ opnsense_nat_csrf_token_value }}"
     status_code: [200, 302]
   loop: "{{ opnsense_nat_rules }}"
