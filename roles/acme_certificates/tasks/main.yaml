@@ -1,0 +1,55 @@
+---
+- name: Install certbot
+  ansible.builtin.apt:
+    update_cache: true
+    pkg:
+      - certbot
+      - cron
+      - python3-certbot-dns-cloudflare
+- name: Download acme-dns-hook
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/koesie10/acme-dns-certbot-hook/releases/download/v0.1.1/acme-dns-certbot-hook_0.1.1_linux_amd64.tar.gz
+    dest: /tmp/acme-dns-certbot-hook.tar.gz
+    mode: '0644'
+- name: Extract acme-dns-certbot-hook tarball
+  ansible.builtin.unarchive:
+    src: /tmp/acme-dns-certbot-hook.tar.gz
+    dest: /usr/local/bin
+    remote_src: true
+- name: Generate acme-dns config
+  ansible.builtin.template:
+    src: acme-dns.cfg.j2
+    dest: /etc/acme-dns.cfg
+- name: Generate cert prepare script
+  ansible.builtin.template:
+    src: prepare-certs.sh.j2
+    dest: /usr/local/bin/prepare-certs.sh
+    mode: '0755'
+- name: Check if domain has already a certificate
+  ansible.builtin.stat:
+    path: /etc/letsencrypt/live/{{ item.domain }}
+  loop: "{{ acme_certificates_cert_domains }}"
+  register: acme_certificates_cert_status
+  loop_control:
+    label: "{{ item.domain }}"
+- name: Request certificates for new domains from Let's Encrypt
+  throttle: 1
+  when: not item.stat.exists
+  loop: "{{ acme_certificates_cert_status.results }}"
+  loop_control:
+    label: "{{ item.item.domain }}"
+  ansible.builtin.command:
+    cmd: >-
+      certbot certonly -n -m '{{ acme_certificates_cert_email }}' --agree-tos --manual
+      --manual-auth-hook '/usr/local/bin/acme-dns-certbot-hook -config /etc/acme-dns.cfg'
+      --preferred-challenges dns -d {{ item.item.domain }} -d '*.{{ item.item.domain }}'
+- name: Prepare haproxy certs
+  ansible.builtin.command:
+    cmd: /usr/local/bin/prepare-certs.sh
+- name: Add certificate auto-renew to cron
+  ansible.builtin.cron:
+    name: renew certificates
+    minute: "0"
+    hour: "{{ 12 + ansible_play_hosts.index(inventory_hostname) }}"
+    job: "/usr/bin/certbot renew --post-hook '/usr/local/bin/prepare-certs.sh'"

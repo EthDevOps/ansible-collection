@@ -1,7 +1,0 @@
-acmedns_server: acme.ethquokkaops.io
-acmedns_cert_email: devops+acme@ethereum.org
-acmedns_cert_domains:
-  - domain: keil-connect.com
-    username: example
-    password: example
-    subdomain: example

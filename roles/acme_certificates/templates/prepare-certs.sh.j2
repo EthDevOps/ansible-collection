@@ -1,11 +1,8 @@
 #!/bin/bash
-{% for domain in acmedns_cert_domains %}
-
-echo "Preparing Domain {{domain.domain}}..."
+{% for domain in acme_certificates_cert_domains %}
+echo "Preparing Domain {{ domain.domain }}..."
 cat /etc/letsencrypt/live/{{ domain.domain }}/fullchain.pem /etc/letsencrypt/live/{{ domain.domain }}/privkey.pem > /etc/certificates/{{ domain.domain }}.pem
-
 {% endfor %}
-
 echo "Reload HAProxy..."
 /usr/bin/systemctl reload haproxy
 echo "done."

@@ -1,12 +1,12 @@
 {
-    "acme_dns_url": "{{ acmedns_server_url }}",
+    "acme_dns_url": "{{ acme_certificates_server_url }}",
     "propagation_duration": "10s",
     "domains": {
-      {% for domain in acmedns_cert_domains %}
+      {% for domain in acme_certificates_cert_domains %}
         "{{ domain.domain }}": {
             "username": "{{ domain.username }}",
             "password": "{{ domain.password }}",
-            "fulldomain": "{{ domain.subdomain }}.{{ acmedns_server }}",
+            "fulldomain": "{{ domain.subdomain }}.{{ acme_certificates_server }}",
             "subdomain": "{{ domain.subdomain }}",
             "allowfrom": []
         }{% if not loop.last %},{% endif %}

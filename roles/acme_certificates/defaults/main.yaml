@@ -1,0 +1,8 @@
+---
+acme_certificates_server: acme.ethquokkaops.io
+acme_certificates_cert_email: devops+acme@ethereum.org
+acme_certificates_cert_domains:
+  - domain: keil-connect.com
+    username: example
+    password: example
+    subdomain: example
