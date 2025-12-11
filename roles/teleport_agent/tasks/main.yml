@@ -1,49 +1,45 @@
+---
 - name: Make sure apt keyrings directory exists
-  file:
+  ansible.builtin.file:
     state: directory
     path: /etc/apt/keyrings
-
 - name: Get teleport apt key
   ansible.builtin.get_url:
     url: https://apt.releases.teleport.dev/gpg
     dest: /etc/apt/keyrings/teleport.asc
-
-- name: add Teleport repo
-  register: add_teleport_repo
+- name: Add Teleport repo
+  register: teleport_agent_add_repo
+  vars:
+    teleport_agent_repo_url: >-
+      deb [signed-by=/etc/apt/keyrings/teleport.asc]
+      https://apt.releases.teleport.dev/{{ ansible_distribution | lower }}
+      {{ ansible_distribution_release }} {{ teleport_version }}
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/teleport.asc] https://apt.releases.teleport.dev/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} {{ teleport_version }}"
-
+    repo: "{{ teleport_agent_repo_url }}"
 - name: Run apt-get update
   ansible.builtin.apt:
-    update_cache: yes
-
-- name: install Teleport agent
-  register: install_teleport
-  notify: reload teleport
-  apt:
-    state: latest
+    update_cache: true
+- name: Install Teleport agent
+  register: teleport_agent_install
+  notify: Reload teleport
+  ansible.builtin.apt:
+    state: present
     name: teleport
-
 - name: Generate Teleport join token on control node
-  command: tctl tokens add --type=node,app,db,windowsdesktop --format=text 
+  ansible.builtin.command: tctl tokens add --type=node,app,db,windowsdesktop --format=text
   delegate_to: localhost
-  register: tctl_output
+  register: teleport_agent_tctl_output
   become: false
-
 - name: Set Teleport token as fact
-  set_fact:
-    teleport_token: "{{ tctl_output.stdout }}"
-
-- name: generate teleport config
-  notify: reload teleport
-  template:
+  ansible.builtin.set_fact:
+    teleport_agent_token: "{{ teleport_agent_tctl_output.stdout }}"
+- name: Generate teleport config
+  notify: Reload teleport
+  ansible.builtin.template:
     src: teleport-config.yml.j2
     dest: /etc/teleport.yaml
-
 - name: Enable and start Teleport agent
-  systemd:
+  ansible.builtin.systemd:
     name: teleport
     enabled: true
     state: started
-
-

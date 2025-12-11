@@ -1,2 +1,3 @@
-teleport_apps: []
-teleport_desktops: []
+---
+teleport_agent_apps: []
+teleport_agent_desktops: []
