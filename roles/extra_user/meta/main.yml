@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  role_name: extra_user
+  author: EthDevOps
+  description: Create additional system users with SSH keys
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - users
+    - ssh
+    - system
+dependencies: []

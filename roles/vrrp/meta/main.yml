@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: vrrp
+  author: EthDevOps
+  description: Configure VRRP with keepalived for high availability
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - vrrp
+    - keepalived
+    - ha
+    - highavailability
+dependencies: []

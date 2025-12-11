@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  role_name: grafana_agent_remove
+  author: EthDevOps
+  description: Remove Grafana Agent from systems
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - grafana
+    - monitoring
+    - cleanup
+dependencies: []

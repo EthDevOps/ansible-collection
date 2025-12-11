@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: bootstrap
+  author: EthDevOps
+  description: Bootstrap new servers with basic configuration and users
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - bootstrap
+    - system
+    - users
+    - configuration
+dependencies: []

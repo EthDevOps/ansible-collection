@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: jvb
+  author: EthDevOps
+  description: Install and configure Jitsi Videobridge (JVB)
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - jitsi
+    - videobridge
+    - webrtc
+    - video
+dependencies: []
