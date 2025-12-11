@@ -1,32 +1,27 @@
+---
 - name: Deploy MotD
   ansible.builtin.template:
     src: motd.j2
     dest: /etc/motd
-
 - name: Set hostname
   ansible.builtin.hostname:
     name: "{{ inventory_hostname }}"
-
 - name: Add self to /etc/hosts
   ansible.builtin.lineinfile:
     dest: /etc/hosts
     line: '{{ ansible_host }} {{ inventory_hostname }}'
-
 - name: Update apt cache
-  apt:
-    update_cache: yes
-    cache_valid_time: 3600  # Consider cache valid for 1 hour
-
-- name: make sure important tools are installed
-  apt:
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+- name: Make sure important tools are installed
+  ansible.builtin.apt:
     name:
       - sudo
       - cron
-
 - name: Disable wait for networking
   ansible.builtin.systemd_service:
     name: systemd-networkd-wait-online.service
     state: stopped
     enabled: false
     masked: true
-

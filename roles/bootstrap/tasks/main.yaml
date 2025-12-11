@@ -1,15 +1,12 @@
+---
 - name: Setup basics
-  import_tasks: basics.yaml
-
+  ansible.builtin.import_tasks: basics.yaml
 - name: Setup Patchman
-  import_tasks: deploy_patchman.yaml
-
+  ansible.builtin.import_tasks: deploy_patchman.yaml
 - name: Setup User
-  import_tasks: user.yaml
-
+  ansible.builtin.import_tasks: user.yaml
 - name: Setup SSHd
-  import_tasks: ssh.yaml
-
+  ansible.builtin.import_tasks: ssh.yaml
 - name: Setup storage optimization
-  import_tasks: storage_optimization.yaml
-  when: storage_optimized is defined and storage_optimized | bool
+  ansible.builtin.import_tasks: storage_optimization.yaml
+  when: bootstrap_storage_optimized is defined and bootstrap_storage_optimized | bool

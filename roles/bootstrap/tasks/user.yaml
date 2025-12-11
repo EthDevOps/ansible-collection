@@ -1,10 +1,10 @@
+---
 - name: Ensure the default user is present
   ansible.builtin.user:
     name: "{{ bootstrap_default_user }}"
     state: present
     shell: "{{ bootstrap_user_shell }}"
-    create_home: yes
-
+    create_home: true
 - name: Allow default user to have passwordless sudo
   ansible.builtin.lineinfile:
     path: /etc/sudoers
@@ -12,45 +12,40 @@
     regexp: "^%{{ bootstrap_default_user }}"
     line: "{{ bootstrap_default_user }} ALL=(ALL) NOPASSWD: ALL"
     validate: visudo -cf %s
-
 - name: Ensure the user is in the sudo group (if required)
   ansible.builtin.user:
     name: "{{ bootstrap_default_user }}"
     groups: sudo
-    append: yes
-
+    append: true
 - name: Ensure users are present
-  user:
+  ansible.builtin.user:
     name: "{{ item.name }}"
     state: present
     shell: /bin/bash
-  loop: "{{ additional_users }}"
+  loop: "{{ bootstrap_additional_users }}"
   loop_control:
     label: "{{ item.name }}"
-
 - name: Create .ssh directory for each user
-  file:
+  ansible.builtin.file:
     path: "/home/{{ item.name }}/.ssh"
     state: directory
     owner: "{{ item.name }}"
     group: "{{ item.name }}"
     mode: '0700'
-  loop: "{{ additional_users }}"
+  loop: "{{ bootstrap_additional_users }}"
   loop_control:
     label: "{{ item.name }}"
-
 - name: Add SSH keys for each user
-  authorized_key:
+  ansible.posix.authorized_key:
     user: "{{ item.0.name }}"
     state: present
     key: "{{ item.1 }}"
-  loop: "{{ additional_users | subelements('sshkeys')  }}"
-
+  loop: "{{ bootstrap_additional_users | subelements('sshkeys') }}"
 - name: Allow passwordless sudo for users
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/sudoers
     line: "{{ item.name }} ALL=(ALL) NOPASSWD: ALL"
     validate: "/usr/sbin/visudo -cf %s"
-  loop: "{{ additional_users }}"
+  loop: "{{ bootstrap_additional_users }}"
   loop_control:
     label: "{{ item.name }}"
