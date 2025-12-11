@@ -1,6 +1,6 @@
+---
 sources:
   metrics_haproxy:
     type: prometheus_scrape
     endpoints:
       - http://127.0.0.1:9142/metrics
-

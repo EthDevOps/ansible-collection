@@ -1,40 +1,34 @@
-- name: install gpg
+---
+- name: Install gpg
   ansible.builtin.apt:
-    update_cache: yes
+    update_cache: true
     pkg:
       - gpg
-
 - name: Add haproxy apt key
   ansible.builtin.apt_key:
     url: https://haproxy.debian.net/bernat.debian.org.gpg
     state: present
-
 - name: Add haproxy apt repo
   ansible.builtin.apt_repository:
     repo: deb http://haproxy.debian.net bookworm-backports-3.1 main
     state: present
-
-- name: install haproxy
+- name: Install haproxy
   ansible.builtin.apt:
-    update_cache: yes
+    update_cache: true
     default_release: bookworm-backports-3.1
     pkg:
       - "haproxy=3.1.*"
-
-- name: make sure certificate dir exists
+- name: Make sure certificate dir exists
   ansible.builtin.file:
     path: /etc/certificates
     state: directory
     mode: "0755"
-  
-
-- name: make sure errors directory exists
+- name: Make sure errors directory exists
   ansible.builtin.file:
     path: /etc/haproxy/errors
     state: directory
     mode: "0755"
-
-- name: copy error pages
+- name: Copy error pages
   loop:
     - 400
     - 429
@@ -43,61 +37,48 @@
     - 503
     - 504
     - default
-  notify: "reload haproxy"
+  notify: "Reload haproxy"
   ansible.builtin.copy:
     src: files/{{ item }}.html
     dest: /etc/haproxy/errors/{{ item }}.http
     mode: "0644"
-
-- name: download diffie-hellman parameters from mozilla
+- name: Download diffie-hellman parameters from mozilla
   ansible.builtin.get_url:
     url: https://ssl-config.mozilla.org/ffdhe2048.txt
     dest: /var/lib/dhparam
     mode: '0644'
-    force: yes
-
+    force: true
 - name: Set lb_hostvars equal to hostvars if not already set
-  set_fact:
-    lb_hostvars: "{{ hostvars }}"
-  when: lb_hostvars is not defined
-
-- name: generate proxy configs for verification
-  notify: "reload haproxy"
-  template:
+  ansible.builtin.set_fact:
+    haproxy_lb_hostvars: "{{ hostvars }}"
+  when: haproxy_lb_hostvars is not defined
+- name: Generate proxy configs for verification
+  notify: "Reload haproxy"
+  ansible.builtin.template:
     src: templates/haproxy.conf.j2
     dest: /tmp/haproxy.cfg.new
     mode: "0644"
-  register: genconfig
-
-- name: generate allowlist
-  notify: "reload haproxy"
-  template:
+  register: haproxy_lb_genconfig
+- name: Generate allowlist
+  notify: "Reload haproxy"
+  ansible.builtin.template:
     src: templates/allowlist.acl.j2
     dest: /etc/haproxy/allowlist.acl
     mode: "0644"
-
-- name: verify proxy configs # noqa no-handler
-  command: haproxy -c -V -f /tmp/haproxy.cfg.new
-  when: genconfig.changed
-
-- name: Copy the verified config # noqa no-handler
-  command: cp /tmp/haproxy.cfg.new /etc/haproxy/haproxy.cfg
-  when: genconfig.changed
-
-- name: reload haproxy
-  systemd:
-    name: haproxy
-    state: reloaded
-  when: genconfig.changed
-
-- name: ensure vector config dir exists
+- name: Verify proxy configs # noqa: no-handler
+  ansible.builtin.command:
+    cmd: haproxy -c -V -f /tmp/haproxy.cfg.new
+  when: haproxy_lb_genconfig.changed
+- name: Copy the verified config # noqa: no-handler
+  ansible.builtin.command:
+    cmd: cp /tmp/haproxy.cfg.new /etc/haproxy/haproxy.cfg
+  when: haproxy_lb_genconfig.changed
+- name: Ensure vector config dir exists
   ansible.builtin.file:
     path: /etc/vector
     state: directory
-
-- name: add the scrape to vector
+- name: Add the scrape to vector
   ansible.builtin.copy:
     src: vector.yaml
     dest: /etc/vector/haproxy.yaml
-  notify: vector-reload
-
+  notify: Vector-reload
