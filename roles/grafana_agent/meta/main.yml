@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: grafana_agent
+  author: EthDevOps
+  description: Install and configure Grafana Agent for metrics and logs collection
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - grafana
+    - monitoring
+    - metrics
+    - logs
+dependencies: []

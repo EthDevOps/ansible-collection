@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: acme_certificates
+  author: EthDevOps
+  description: Manages ACME/Let's Encrypt certificates with Cloudflare DNS validation
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - ssl
+    - certificates
+    - letsencrypt
+    - acme
+    - cloudflare
+dependencies: []

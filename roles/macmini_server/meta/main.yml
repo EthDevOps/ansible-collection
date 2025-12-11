@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  role_name: macmini_server
+  author: EthDevOps
+  description: Configure Mac Mini as a server with server mode settings
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - macmini
+    - server
+    - configuration
+dependencies: []

@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: k3s
+  author: EthDevOps
+  description: Install and configure K3s lightweight Kubernetes
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - kubernetes
+    - k3s
+    - containers
+    - orchestration
+dependencies: []

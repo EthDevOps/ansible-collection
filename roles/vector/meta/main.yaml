@@ -1,4 +1,22 @@
 ---
+galaxy_info:
+  role_name: vector
+  author: EthDevOps
+  description: Install and configure Vector for logs and metrics collection
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - vector
+    - logging
+    - metrics
+    - observability
 dependencies:
   - role: prometheus.prometheus.node_exporter
     when: vector_install_nodexporter
