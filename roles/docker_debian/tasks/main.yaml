@@ -1,9 +1,8 @@
-# tasks/main.yml
+---
 - name: Update apt cache
   ansible.builtin.apt:
-    update_cache: yes
+    update_cache: true
   become: true
-
 - name: Install required packages
   ansible.builtin.apt:
     name: "{{ item }}"
@@ -16,40 +15,33 @@
     - gnupg
     - lsb-release
     - python3-docker
-
 - name: Add Docker GPG key
   ansible.builtin.apt_key:
-    url: "{{ docker_gpg_key }}"
+    url: "{{ docker_debian_gpg_key }}"
     state: present
   become: true
-
 - name: Add Docker repository
   ansible.builtin.apt_repository:
-    repo: "deb [arch=amd64] {{ docker_repository }} {{ ansible_distribution_release }} stable"
+    repo: "deb [arch=amd64] {{ docker_debian_repository }} {{ ansible_distribution_release }} stable"
     state: present
-    update_cache: yes
+    update_cache: true
   become: true
-
 - name: Create docker config directory
-  file:
+  ansible.builtin.file:
     path: /etc/docker
     state: directory
-
 - name: Generate Docker Configuation
-  template:
+  ansible.builtin.template:
     src: daemon.json.j2
     dest: /etc/docker/daemon.json
-
 - name: Install Docker
   ansible.builtin.apt:
-    name: "{{ docker_package }}"
+    name: "{{ docker_debian_package }}"
     state: present
   become: true
-
 - name: Ensure Docker is running
   ansible.builtin.systemd:
     name: docker
     state: started
-    enabled: yes
+    enabled: true
   become: true
-
