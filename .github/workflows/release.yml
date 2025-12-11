@@ -79,3 +79,10 @@ jobs:
         asset_path: ./${{ steps.get_filename.outputs.FILENAME }}
         asset_name: ${{ steps.get_filename.outputs.FILENAME }}
         asset_content_type: application/gzip
+
+    - name: Publish to Ansible Galaxy
+      run: |
+        ansible-galaxy collection publish ${{ steps.get_filename.outputs.FILENAME }} --api-key ${{ secrets.ANSIBLE_GALAXY_API_TOKEN }}
+
+
+
