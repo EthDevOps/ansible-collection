@@ -1,15 +1,10 @@
+---
 - name: Install keepalived
-  apt:
+  ansible.builtin.apt:
     pkg: keepalived
-
 - name: Create keepalived config
-  register: keepaliveconfig
-  template:
+  register: vrrp_keepalived_config
+  ansible.builtin.template:
     src: keepalived.conf.j2
     dest: /etc/keepalived/keepalived.conf
-
-- name: restart keepalived
-  when: keepaliveconfig.changed
-  systemd:
-    name: keepalived
-    state: restarted
+  notify: Restart keepalived
