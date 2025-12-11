@@ -1,8 +1,12 @@
 ---
 extends: default
+ignore:
+  - .ansible/
+  - .cache/
+  - .git/
+  - .github/
 rules:
-  line-length:
-    max: 120
+  line-length: disable
   comments:
     min-spaces-from-content: 1
   comments-indentation: false
@@ -17,3 +21,5 @@ rules:
   octal-values:
     forbid-implicit-octal: true
     forbid-explicit-octal: true
+  truthy:
+    allowed-values: ['true', 'false', 'on']
