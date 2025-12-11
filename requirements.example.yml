@@ -1,12 +1,10 @@
 ---
 # Example requirements.yml for downstream consumers
 # This shows how to consume the collection with version constraints
-
 collections:
   # Use a specific version
   - name: https://github.com/ethereum-foundation/ansible-collection/releases/download/v1.2.0/ethereum-quokkaops-1.2.0.tar.gz
     type: url
-
-  # Or if published to Galaxy (future option)
-  # - name: ethereum.quokkaops
-  #   version: ">=1.0.0,<2.0.0"  # Stay within major version 1.x
+# Or if published to Galaxy (future option)
+# - name: ethereum.quokkaops
+#   version: ">=1.0.0,<2.0.0"  # Stay within major version 1.x
