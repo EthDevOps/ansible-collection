@@ -13,10 +13,10 @@ jobs:
       
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-      
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
       with:
         python-version: '3.x'
         
@@ -43,42 +43,27 @@ jobs:
         COLLECTION_FILE=$(ls ethdevops-general-*.tar.gz)
         echo "FILENAME=$COLLECTION_FILE" >> $GITHUB_OUTPUT
         
-    - name: Create Release
-      uses: actions/create-release@v1
-      id: create_release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create Release and Upload Asset
+      uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ steps.get_version.outputs.VERSION }}
-        draft: false
-        prerelease: false
+        name: Release ${{ steps.get_version.outputs.VERSION }}
+        files: ${{ steps.get_filename.outputs.FILENAME }}
         body: |
           ## Ansible Collection Release ${{ steps.get_version.outputs.VERSION }}
-          
+
           This release contains the packaged Ansible collection that can be installed via:
-          
+
           ```bash
           ansible-galaxy collection install https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.get_filename.outputs.FILENAME }}
           ```
-          
+
           Or by adding to your `requirements.yml`:
-          
+
           ```yaml
           collections:
             - name: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.get_filename.outputs.FILENAME }}
               type: url
           ```
-          
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./${{ steps.get_filename.outputs.FILENAME }}
-        asset_name: ${{ steps.get_filename.outputs.FILENAME }}
-        asset_content_type: application/gzip
 
     - name: Publish to Ansible Galaxy
       run: |
