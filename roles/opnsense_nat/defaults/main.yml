@@ -1,17 +1,13 @@
 ---
 # Default variables for OPNsense NAT role
-
 # OPNsense connection details
-opnsense_host: "10.128.0.1"
-opnsense_validate_certs: false
-
+opnsense_nat_host: "10.128.0.1"
+opnsense_nat_validate_certs: false
 # Authentication - these should be set in your playbook or vault
-opnsense_username: ""  # Required: OPNsense admin username
-opnsense_password: ""  # Required: OPNsense admin password
-
+opnsense_nat_username: ""  # Required: OPNsense admin username
+opnsense_nat_password: ""  # Required: OPNsense admin password
 # These will be set automatically by auth.yml if not provided
-opnsense_phpsessid: ""  # Optional: PHP session ID from OPNsense login
-csrf_token: ""          # Optional: CSRF token from OPNsense
-
+opnsense_nat_phpsessid: ""  # Optional: PHP session ID from OPNsense login
+opnsense_nat_csrf_token: ""  # Optional: CSRF token from OPNsense
 # Example NAT rules (should be overridden in your playbook)
 opnsense_nat_rules: []

@@ -2,64 +2,66 @@
 # Step 1: Get initial login page CSRF token
 - name: Get OPNsense login page to extract initial CSRF token
   ansible.builtin.uri:
-    url: "https://{{ opnsense_host }}/index.php"
+    url: "https://{{ opnsense_nat_host }}/index.php"
     method: GET
-    validate_certs: "{{ opnsense_validate_certs | default(false) }}"
-    return_content: yes
-  register: login_page
-
+    validate_certs: "{{ opnsense_nat_validate_certs | default(false) }}"
+    return_content: true
+  register: opnsense_nat_login_page
 - name: Extract PHPSESSID from login response
   ansible.builtin.set_fact:
-    opnsense_phpsessid: "{{ login_page.cookies.PHPSESSID }}"
-
+    opnsense_nat_phpsessid: "{{ opnsense_nat_login_page.cookies.PHPSESSID }}"
 - name: Extract Login page CSRF token
+  vars:
+    opnsense_nat_csrf_regex_name: '<input type="hidden" name="([^"]+)" value="[^"]+"'
+    opnsense_nat_csrf_regex_value: '<input type="hidden" name="[^"]+" value="([^"]+)"'
   ansible.builtin.set_fact:
-    csrf_token_name: "{{ login_page.content | regex_search('<input type=\"hidden\" name=\"([^\"]+)\" value=\"[^\"]+\"', '\\1') | first }}"
-    csrf_token_value: "{{ login_page.content | regex_search('<input type=\"hidden\" name=\"[^\"]+\" value=\"([^\"]+)\"', '\\1') | first }}"
-
+    opnsense_nat_csrf_token_name: >-
+      {{ opnsense_nat_login_page.content | regex_search(opnsense_nat_csrf_regex_name, '\1') | first }}
+    opnsense_nat_csrf_token_value: >-
+      {{ opnsense_nat_login_page.content | regex_search(opnsense_nat_csrf_regex_value, '\1') | first }}
 # Step 2: Login to OPNsense
 - name: Login to OPNsense
   ansible.builtin.uri:
-    url: "https://{{ opnsense_host }}/index.php"
+    url: "https://{{ opnsense_nat_host }}/index.php"
     method: POST
-    validate_certs: "{{ opnsense_validate_certs | default(false) }}"
+    validate_certs: "{{ opnsense_nat_validate_certs | default(false) }}"
     headers:
       Content-Type: application/x-www-form-urlencoded
-      Cookie: "PHPSESSID={{ opnsense_phpsessid }}"
+      Cookie: "PHPSESSID={{ opnsense_nat_phpsessid }}"
     body_format: form-urlencoded
     body:
-      "{{ csrf_token_name }}": "{{ csrf_token_value }}"
-      usernamefld: "{{ opnsense_username }}"
-      passwordfld: "{{ opnsense_password }}"
+      "{{ opnsense_nat_csrf_token_name }}": "{{ opnsense_nat_csrf_token_value }}"
+      usernamefld: "{{ opnsense_nat_username }}"
+      passwordfld: "{{ opnsense_nat_password }}"
       login: "1"
     status_code: [200, 302]
-  register: login_response
-
+  register: opnsense_nat_login_response
 - name: Extract PHPSESSID from login response
   ansible.builtin.set_fact:
-    opnsense_phpsessid: "{{ login_response.cookies.PHPSESSID }}"
-
+    opnsense_nat_phpsessid: "{{ opnsense_nat_login_response.cookies.PHPSESSID }}"
 - name: Verify login success
   ansible.builtin.fail:
     msg: "Failed to login to OPNsense"
-  when: not login_response.cookies.PHPSESSID is defined
-
+  when: not opnsense_nat_login_response.cookies.PHPSESSID is defined
 # Step 3: Get NAT page CSRF token
 - name: Get NAT page to extract CSRF token
   ansible.builtin.uri:
-    url: "https://{{ opnsense_host }}/firewall_nat.php"
+    url: "https://{{ opnsense_nat_host }}/firewall_nat.php"
     method: GET
-    validate_certs: "{{ opnsense_validate_certs | default(false) }}"
+    validate_certs: "{{ opnsense_nat_validate_certs | default(false) }}"
     headers:
-      Cookie: "PHPSESSID={{ opnsense_phpsessid }}"
-    return_content: yes
-  register: nat_page
-
+      Cookie: "PHPSESSID={{ opnsense_nat_phpsessid }}"
+    return_content: true
+  register: opnsense_nat_nat_page
 - name: Extract NAT page CSRF token
+  vars:
+    opnsense_nat_csrf_regex_name: '<input type="hidden" name="([^"]+)" value="[^"]+"'
+    opnsense_nat_csrf_regex_value: '<input type="hidden" name="[^"]+" value="([^"]+)"'
   ansible.builtin.set_fact:
-    csrf_token_name: "{{ nat_page.content | regex_search('<input type=\"hidden\" name=\"([^\"]+)\" value=\"[^\"]+\"', '\\1') | first }}"
-    csrf_token_value: "{{ nat_page.content | regex_search('<input type=\"hidden\" name=\"[^\"]+\" value=\"([^\"]+)\"', '\\1') | first }}"
-
+    opnsense_nat_csrf_token_name: >-
+      {{ opnsense_nat_nat_page.content | regex_search(opnsense_nat_csrf_regex_name, '\1') | first }}
+    opnsense_nat_csrf_token_value: >-
+      {{ opnsense_nat_nat_page.content | regex_search(opnsense_nat_csrf_regex_value, '\1') | first }}
 - name: Debug NAT page CSRF token (remove in production)
   ansible.builtin.debug:
-    msg: "NAT page CSRF Token Name: {{ csrf_token_name }}, Value: {{ csrf_token_value }}"
+    msg: "NAT page CSRF Token Name: {{ opnsense_nat_csrf_token_name }}, Value: {{ opnsense_nat_csrf_token_value }}"
