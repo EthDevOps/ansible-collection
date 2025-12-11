@@ -1,7 +1,8 @@
-# defaults/main.yml
-# lower case is important because for Ubuntu it returns the value capitalized, but the repo/gpg key fetches are lowercase sensitive
-os: "{{ ansible_distribution | lower }}"
-docker_repository: "https://download.docker.com/linux/{{ os }}"
-docker_gpg_key: "https://download.docker.com/linux/{{ os }}/gpg"
-docker_package: "docker-ce"
-docker_registry_mirror: ""
+---
+# Lower case is important because for Ubuntu it returns the value capitalized,
+# but the repo/gpg key fetches are lowercase sensitive
+docker_debian_os: "{{ ansible_distribution | lower }}"
+docker_debian_repository: "https://download.docker.com/linux/{{ docker_debian_os }}"
+docker_debian_gpg_key: "https://download.docker.com/linux/{{ docker_debian_os }}/gpg"
+docker_debian_package: "docker-ce"
+docker_debian_registry_mirror: ""
