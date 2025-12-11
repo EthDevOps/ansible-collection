@@ -1,26 +1,22 @@
-- name: install UFW
+---
+- name: Install UFW
   ansible.builtin.apt:
     name: ufw
-
 - name: Allow ssh/tcp
-  ufw:
+  community.general.ufw:
     rule: allow
     port: '22'
     proto: tcp
-
 - name: Allow jvb streaming/udp
-  ufw:
+  community.general.ufw:
     rule: allow
     port: '10000'
     proto: udp
-
 - name: Allow jvb websockets/tcp
-  ufw:
+  community.general.ufw:
     rule: allow
     port: '9090'
     proto: tcp
-
 - name: Enable UFW
-  ufw:
+  community.general.ufw:
     state: enabled
-

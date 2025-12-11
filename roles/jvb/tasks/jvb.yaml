@@ -1,52 +1,41 @@
-- name: get jitsi gpg key
+---
+- name: Get jitsi gpg key
   ansible.builtin.get_url:
     url: https://download.jitsi.org/jitsi-key.gpg.key
     dest: /etc/apt/keyrings/jitsi.asc
-
-- name: add jitsi repo
-  register: add_jitsi_repo
+- name: Add jitsi repo
   ansible.builtin.apt_repository:
     repo: "deb [signed-by=/etc/apt/keyrings/jitsi.asc] https://download.jitsi.org stable/"
-
-- name: Run apt-get update
-  when: add_jitsi_repo.changed
-  ansible.builtin.apt:
-    update_cache: yes
-
+  notify:
+    - Update apt cache
 - name: Install Jitsi Videobridge
   ansible.builtin.apt:
-    name: "jitsi-videobridge2={{ jitsi_jvb_version }}"
+    name: "jitsi-videobridge2={{ jvb_jitsi_version }}"
     allow_downgrade: true
-
 - name: Pin JVB
-  copy:
+  ansible.builtin.copy:
     dest: /etc/apt/preferences.d/pinning
     content: |
       Package: jitsi-videobridge2
-      Pin: version {{ jitsi_jvb_version }}
+      Pin: version {{ jvb_jitsi_version }}
       Pin-Priority: 1001
-
-
 - name: Generate jvb config
-  notify: jvb-restart
+  notify: Jvb-restart
   ansible.builtin.template:
     src: jvb.conf
     dest: /etc/jitsi/videobridge/jvb.conf
-
-- name: remove sip config
-  notify: jvb-restart
+- name: Remove sip config
+  notify: Jvb-restart
   ansible.builtin.file:
     path: /etc/jitsi/videobridge/sip-communicator.properties
     state: absent
-
-- name: make sure jvb service is enabled
+- name: Make sure jvb service is enabled
   ansible.builtin.systemd:
     name: jitsi-videobridge2
     state: started
-    enabled: yes
-
+    enabled: true
 - name: Add cron job to restart JVB every saturday
-  cron:
+  ansible.builtin.cron:
     name: "Restart JVB"
     minute: "0"
     hour: "10"

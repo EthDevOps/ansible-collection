@@ -1,9 +1,15 @@
-- name: jvb-restart
+---
+- name: Jvb-restart
   ansible.builtin.systemd:
     name: jitsi-videobridge2
     state: restarted
-
-- name: vector-reload
+- name: Vector-reload
   ansible.builtin.systemd:
     name: vector-multi
     state: reloaded
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
