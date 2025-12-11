@@ -3,7 +3,7 @@ teleport:
   nodename: {{ ansible_hostname }}
   data_dir: /var/lib/teleport
   join_params:
-    token_name: {{ teleport_token }}
+    token_name: {{ teleport_agent_token }}
     method: token
   proxy_server: {{ teleport_cluster }}:443
   log:
@@ -33,9 +33,9 @@ proxy_service:
   https_keypairs_reload_interval: 0s
   acme: {}
 app_service:
-  enabled: "{{ 'yes' if (teleport_apps | length > 0) or (services | selectattr('custom_fields.expose_mode', 'defined') | selectattr('custom_fields.expose_mode', 'equalto', 'teleport') | list | length > 0) else 'no' }}"
+  enabled: "{{ 'yes' if (teleport_agent_apps | length > 0) or (services | selectattr('custom_fields.expose_mode', 'defined') | selectattr('custom_fields.expose_mode', 'equalto', 'teleport') | list | length > 0) else 'no' }}"
   apps:
-{% for app in teleport_apps %}
+{% for app in teleport_agent_apps %}
   -  name: "{{ app.name }}"
      uri: "{{ app.url }}"
      public_addr: "{{ app.name }}.teleport.ethquokkaops.io"
@@ -50,11 +50,11 @@ app_service:
        tenant: {{ tenants[0] }}
 {% endfor %}
 
-{% if (teleport_desktops | length > 0) %}
+{% if (teleport_agent_desktops | length > 0) %}
 windows_desktop_service:
   enabled: true
   static_hosts:
-{% for desktop in teleport_desktops %}
+{% for desktop in teleport_agent_desktops %}
   - name: "{{ desktop.name }}"
     ad: false
     addr: "{{ desktop.ip }}"

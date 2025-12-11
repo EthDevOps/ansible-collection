@@ -1,4 +1,5 @@
-- name: reload teleport
-  systemd:
+---
+- name: Reload teleport
+  ansible.builtin.systemd:
     name: teleport
     state: reloaded
