@@ -1,0 +1,47 @@
+---
+- name: Ensure user is present
+  ansible.builtin.user:
+    name: "{{ extra_user_name }}"
+    comment: "User {{ extra_user_name }}"
+    shell: /bin/bash
+    create_home: true
+- name: Fetch public key from GitHub
+  ansible.builtin.get_url:
+    url: "https://github.com/{{ extra_user_name }}.keys"
+    dest: "/tmp/{{ extra_user_name }}.keys"
+    mode: '0644'
+- name: Ensure .ssh directory exists
+  ansible.builtin.file:
+    path: "/home/{{ extra_user_name }}/.ssh"
+    state: directory
+    owner: "{{ extra_user_name }}"
+    group: "{{ extra_user_name }}"
+    mode: '0700'
+- name: Add public keys from GitHub to authorized_keys
+  ansible.builtin.copy:
+    remote_src: true
+    src: "/tmp/{{ extra_user_name }}.keys"
+    dest: "/home/{{ extra_user_name }}/.ssh/authorized_keys"
+    owner: "{{ extra_user_name }}"
+    group: "{{ extra_user_name }}"
+    mode: '0600'
+    force: true
+- name: Add public keys from NetBox to authorized_keys
+  ansible.builtin.copy:
+    remote_src: true
+    content: "{{ extra_user_ssh_keys[extra_user_name] }}\n"
+    dest: "/home/{{ extra_user_name }}/.ssh/authorized_keys"
+    owner: "{{ extra_user_name }}"
+    group: "{{ extra_user_name }}"
+    mode: '0600'
+    force: true
+  when: extra_user_ssh_keys is defined and extra_user_name in extra_user_ssh_keys
+- name: Allow user passwordless sudo
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    line: "{{ extra_user_name }} ALL=(ALL) NOPASSWD: ALL"
+    validate: 'visudo -cf %s'
+- name: Clean up temporary files
+  ansible.builtin.file:
+    path: "/tmp/{{ extra_user_name }}.keys"
+    state: absent
