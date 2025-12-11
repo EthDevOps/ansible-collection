@@ -40,7 +40,7 @@ jobs:
     - name: Get collection filename
       id: get_filename
       run: |
-        COLLECTION_FILE=$(ls ethereum-quokkaops-*.tar.gz)
+        COLLECTION_FILE=$(ls ethdevops-general-*.tar.gz)
         echo "FILENAME=$COLLECTION_FILE" >> $GITHUB_OUTPUT
         
     - name: Create Release
