@@ -1,4 +1,0 @@
-- name: restart_agent
-  ansible.builtin.systemd:
-    name: grafana-agent-flow 
-    state: restarted
