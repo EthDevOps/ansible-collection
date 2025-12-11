@@ -1,0 +1,13 @@
+---
+haproxy_lb_sites_insecure: false
+haproxy_lb_stats_user: user
+haproxy_lb_stats_password: somepassword
+haproxy_lb_auth: []
+haproxy_lb_rate_limit_per_min: 1500
+haproxy_lb_rate_limit_targets: []
+haproxy_lb_rate_limit_exclude: []
+haproxy_lb_clusters: []
+haproxy_lb_sites: []
+haproxy_lb_tunnels: []
+haproxy_lb_redirects: []
+haproxy_lb_k8s_services: []
