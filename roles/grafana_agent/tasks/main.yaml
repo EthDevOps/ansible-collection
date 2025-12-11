@@ -1,53 +1,43 @@
-- name: make sure key dir exists
-  file:
+---
+- name: Make sure key dir exists
+  ansible.builtin.file:
     state: directory
     path: /etc/apt/keyrings
-
 - name: Get grafana apt key
   ansible.builtin.get_url:
     url: https://apt.grafana.com/gpg.key
     dest: /etc/apt/keyrings/grafana.asc
-
-- name: add grafana repo
-  register: add_grafana_repo
+- name: Add grafana repo
   ansible.builtin.apt_repository:
     repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
-
-- name: Run apt-get update
-  when: add_grafana_repo.changed
-  ansible.builtin.apt:
-    update_cache: yes
-
+  notify:
+    - Update apt cache
 - name: Install Grafana Agent Flow
   ansible.builtin.apt:
     name: grafana-agent-flow
-
-- name: create extra config dir
-  file:
+- name: Create extra config dir
+  ansible.builtin.file:
     state: directory
     path: /etc/grafana-targets.d
-
 - name: Generate Grafana config file
-  notify: restart_agent
-  template:
+  notify: Restart agent
+  ansible.builtin.template:
     src: grafana-agent-flow.river
-    dest: /etc/grafana-agent-flow.river 
-
+    dest: /etc/grafana-agent-flow.river
 - name: Check if docker group exists
-  command: getent group docker
-  register: docker_group_check
-  ignore_errors: yes
-
+  ansible.builtin.command:
+    cmd: getent group docker
+  register: grafana_agent_docker_group_check
+  failed_when: false
+  changed_when: false
 - name: Add user to docker group if group exists
-  user:
+  ansible.builtin.user:
     name: grafana-agent-flow
     groups: docker
-    append: yes
-  when: docker_group_check.rc == 0
-
-- name: make sure agent service is enabled
+    append: true
+  when: grafana_agent_docker_group_check.rc == 0
+- name: Make sure agent service is enabled
   ansible.builtin.systemd:
     name: grafana-agent-flow
     state: started
-    enabled: yes
-
+    enabled: true
