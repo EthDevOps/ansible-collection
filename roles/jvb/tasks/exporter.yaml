@@ -1,46 +1,38 @@
-- name: download jvb exporter
+---
+- name: Download jvb exporter
+  vars:
+    jvb_exporter_base: https://github.com/systemli/prometheus-jitsi-meet-exporter/releases/download
   ansible.builtin.get_url:
-    url: https://github.com/systemli/prometheus-jitsi-meet-exporter/releases/download/{{exporter_version}}/prometheus-jitsi-meet-exporter_{{exporter_version}}_linux_amd64.tar.gz
+    url: "{{ jvb_exporter_base }}/{{ jvb_exporter_version }}/prometheus-jitsi-meet-exporter_{{ jvb_exporter_version }}_linux_amd64.tar.gz"
     dest: /tmp/jitsi-exporter.tar.gz
-
--  name: Unpack the exporter
-   check_mode: no
-   ansible.builtin.unarchive:
+- name: Unpack the exporter
+  check_mode: false
+  ansible.builtin.unarchive:
     src: /tmp/jitsi-exporter.tar.gz
     dest: /usr/local/bin
-    remote_src: yes 
-
-- name: copy jitsi export service
-  copy:
+    remote_src: true
+- name: Copy jitsi export service
+  ansible.builtin.copy:
     src: jitsi-exporter.service
     dest: /etc/systemd/system/jitsi-exporter.service
-  register: exporterservice
-
--  name: Reload systemd
-   when: exporterservice.changed
-   ansible.builtin.systemd:
-     daemon_reload: yes
-
-- name: make sure jitsi exporter service is enabled
+  notify:
+    - Reload systemd
+- name: Make sure jitsi exporter service is enabled
   ansible.builtin.systemd:
     name: jitsi-exporter
     state: started
-    enabled: yes
-
-- name: add vector to jitsi group
-  user:
+    enabled: true
+- name: Add vector to jitsi group
+  ansible.builtin.user:
     name: vector
     groups: jitsi
-    append: yes
-
-- name: ensure vector config dir exists
+    append: true
+- name: Ensure vector config dir exists
   ansible.builtin.file:
     path: /etc/vector
     state: directory
-
-- name: add the scrape to vector
+- name: Add the scrape to vector
   ansible.builtin.template:
     src: vector.yaml.j2
     dest: /etc/vector/jitsi.yaml
-  notify: vector-reload
-
+  notify: Vector-reload

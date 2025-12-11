@@ -1,9 +1,9 @@
-- name: disable unattended updates
+---
+- name: Disable unattended updates
   ansible.builtin.systemd:
     name: unattended-upgrades
     state: stopped
-    enabled: no
-
+    enabled: false
 - name: Remove unattended-upgrades package
   ansible.builtin.apt:
     name: unattended-upgrades
