@@ -16,7 +16,7 @@ sources:
     include:
       - /var/log/apt/history.log
 
-{% if docker_installed %}
+{% if vector_docker_installed %}
   logs_docker:
     type: docker_logs
 {% endif %}
