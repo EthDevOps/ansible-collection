@@ -49,6 +49,7 @@
     mode: '0644'
     force: true
 - name: Set lb_hostvars equal to hostvars if not already set
+  check_mode: false
   ansible.builtin.set_fact:
     haproxy_lb_hostvars: "{{ hostvars }}"
   when: haproxy_lb_hostvars is not defined

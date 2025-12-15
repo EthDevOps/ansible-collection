@@ -45,7 +45,7 @@ defaults
     errorfile 504 /etc/haproxy/errors/504.http
 
 # Authentication
-{% for group in hap_auth %}
+{% for group in haproxy_lb_auth %}
 userlist {{ group.group }}
     {% for user in group.users %}
     user {{ user.name }} password {{ user.password | password_hash(hashtype='sha256', rounds=1000) }}
@@ -64,7 +64,7 @@ listen stats
     stats enable
     stats uri /
     stats hide-version
-    stats auth {{ hap_stats_user }}:{{ hap_stats_password }}
+    stats auth {{ haproxy_lb_stats_user }}:{{ haproxy_lb_stats_password }}
 
 frontend prometheus
     bind 127.0.0.1:9142
@@ -73,12 +73,12 @@ frontend prometheus
     http-request use-service prometheus-exporter if { path /metrics }
 
 {% set domain_groups = {} %}
-{% if hap_sites and hap_sites|length > 0 %}
+{% if haproxy_lb_sites and haproxy_lb_sites|length > 0 %}
 frontend http
     bind *:80
     bind [::]:80 v6only
 
-    {% if not hap_sites_insecure %}
+    {% if not haproxy_lb_sites_insecure %}
     bind *:443 ssl crt /etc/certificates/ alpn h2,http/1.1
     bind [::]:443 v6only ssl crt /etc/certificates/ alpn h2,http/1.1
     {% endif %}
@@ -90,7 +90,7 @@ frontend http
     #capture request  header Host len 20
     #capture response header Location len 20
     
-    #acl is_abuse src_http_req_rate(Abuse) ge {{ hap_rate_limit_per_min }}
+    #acl is_abuse src_http_req_rate(Abuse) ge {{ haproxy_lb_rate_limit_per_min }}
     #acl inc_abuse_cnt src_inc_gpc0(Abuse) gt 0  # Increments counter GPC0 (general purpose counter 0) by one when called/matched - Activates limiter
     #acl abuse_cnt src_get_gpc0(Abuse) gt 0      # Query GPC0 for > 0 - checks on limiter
 
@@ -104,7 +104,7 @@ frontend http
     # Tarpit ratelimited requests for 10s
     #timeout tarpit 10s
 
-    #{% for item in hap_rate_limit_targets %}
+    #{% for item in haproxy_lb_rate_limit_targets %}
 
     # Rate limiter ACL for {{ item.name }}
     #acl ratehost_{{ item.name }} hdr(host) -i {{ item.domain }}
@@ -121,8 +121,8 @@ frontend http
     http-request capture path len 512
 
     # Structured Redirects (processed before backend routing)
-    {% if hap_redirects is defined and hap_redirects | length > 0 %}
-    {% for redirect in hap_redirects %}
+    {% if haproxy_lb_redirects is defined and haproxy_lb_redirects | length > 0 %}
+    {% for redirect in haproxy_lb_redirects %}
     {% if redirect.src is defined %}
     {% set redirect_name = redirect.src[0] | replace('.', '_') | replace('-', '_') %}
     {% set safe_target = redirect.target | replace('#', '%%23') %}
@@ -183,8 +183,8 @@ frontend http
     {# Sort sites: those with path defined first (more specific routes) #}
     {% set sites_with_path = [] %}
     {% set sites_without_path = [] %}
-    {% for site in hap_sites %}
-    {% if hap_sites[site].path is defined %}
+    {% for site in haproxy_lb_sites %}
+    {% if haproxy_lb_sites[site].path is defined %}
     {% set _ = sites_with_path.append(site) %}
     {% else %}
     {% set _ = sites_without_path.append(site) %}
@@ -193,20 +193,20 @@ frontend http
     {% set sorted_sites = sites_with_path + sites_without_path %}
     {% for site in sorted_sites %}
     # START SITE: {{ site }}
-    {% for domain in hap_sites[site].domains %}
+    {% for domain in haproxy_lb_sites[site].domains %}
     acl host_{{ site }} hdr(host) -i {{ domain }}
     acl host_{{ site }} hdr(host) -i {{ domain }}:80
     acl host_{{ site }} hdr(host) -i {{ domain }}:443
     {% endfor %}
-    {% if hap_sites[site].path is defined %}
-    acl path_{{ site }} path -i -m beg {{ hap_sites[site].path }}
+    {% if haproxy_lb_sites[site].path is defined %}
+    acl path_{{ site }} path -i -m beg {{ haproxy_lb_sites[site].path }}
     {% endif %}
-    {% if hap_sites[site].use_cache is defined and hap_sites[site].use_cache == 'true' %}
+    {% if haproxy_lb_sites[site].use_cache is defined and haproxy_lb_sites[site].use_cache == 'true' %}
     http-request cache-use global_cache if host_{{ site }}
     http-response cache-store global_cache if host_{{ site }}
     {% endif %}
 
-    use_backend {{ site }} if host_{{ site }} {% if hap_sites[site].path is defined %} path_{{ site }}{% endif %}
+    use_backend {{ site }} if host_{{ site }} {% if haproxy_lb_sites[site].path is defined %} path_{{ site }}{% endif %}
 
     # END SITE: {{ site }}
 
@@ -214,7 +214,7 @@ frontend http
 
     #### K8S services
 
-   {% for cluster in hap_k8s_services %}
+   {% for cluster in haproxy_lb_k8s_services %}
     ## k8s cluster: {{ cluster.item }}
    {# Sort services: those with path annotations first (more specific routes) #}
    {% set services_with_path = [] %}
@@ -300,16 +300,16 @@ frontend http
 
 ### TCP Frontends
 
-{% for tun in hap_tunnels %}
+{% for tun in haproxy_lb_tunnels %}
 frontend fe_{{ tun }}
-    bind *:{{ hap_tunnels[tun].port }}
-    bind [::]:{{ hap_tunnels[tun].port }} v6only
+    bind *:{{ haproxy_lb_tunnels[tun].port }}
+    bind [::]:{{ haproxy_lb_tunnels[tun].port }} v6only
     mode tcp
     option tcplog
     default_backend tcp_{{ tun }}
 {% endfor %}
 
-{% for cluster in hap_k8s_services %}
+{% for cluster in haproxy_lb_k8s_services %}
 {% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-tcp"] is defined %} 
 
 frontend fe_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
@@ -342,8 +342,8 @@ backend default
 
     # Redirects
 
-    {% if hap_redirects is defined %}
-    {% for redirect in hap_redirects %}
+    {% if haproxy_lb_redirects is defined %}
+    {% for redirect in haproxy_lb_redirects %}
 
     {% if redirect.match is defined %}
     acl redir_match_{{ loop.index }} path_reg {{ redirect.match }}
@@ -363,7 +363,7 @@ backend default
     errorfile 503 /etc/haproxy/errors/default.http
 
 
-{% for site in hap_sites %}
+{% for site in haproxy_lb_sites %}
 backend {{ site }}
     option forwardfor
     option forwarded
@@ -383,57 +383,57 @@ backend {{ site }}
     compression type text/css text/html text/javascript application/javascript text/plain text/xml application/json
     compression offload
 
-    {% if hap_sites[site]["auth"] is defined %}
-    acl basic-auth http_auth({{ hap_sites[site]["auth"] }})
+    {% if haproxy_lb_sites[site]["auth"] is defined %}
+    acl basic-auth http_auth({{ haproxy_lb_sites[site]["auth"] }})
     http-request auth realm {{ site }} unless basic-auth
     http-request del-header Authorization
     {% endif %}
 
-    {% if hap_sites[site]["set_path"] is defined %}
-    http-request set-path {{ hap_sites[site]["set_path"] }}
+    {% if haproxy_lb_sites[site]["set_path"] is defined %}
+    http-request set-path {{ haproxy_lb_sites[site]["set_path"] }}
     {% endif %}
 
-    {% if hap_sites[site]["use_sticky"] is defined %}
+    {% if haproxy_lb_sites[site]["use_sticky"] is defined %}
     cookie SERVER_USED insert indirect nocache
     {% endif %}
 
-    default-server check maxconn {{ hap_sites[site].max_conn | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if hap_sites[site].sslbackend is defined else '' }} {{ 'alpn h2,http/1.1' if hap_sites[site].http2 is defined else '' }} {{ 'cookie s' if hap_sites[site]["use_sticky"] is defined }}{{ loop.index if hap_sites[site]["use_sticky"] is defined }}
+    default-server check maxconn {{ haproxy_lb_sites[site].max_conn | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if haproxy_lb_sites[site].sslbackend is defined else '' }} {{ 'alpn h2,http/1.1' if haproxy_lb_sites[site].http2 is defined else '' }} {{ 'cookie s' if haproxy_lb_sites[site]["use_sticky"] is defined }}{{ loop.index if haproxy_lb_sites[site]["use_sticky"] is defined }}
 
-    {% if hap_sites[site].balance_mode is defined and hap_sites[site].balance_mode == "backup" %}
+    {% if haproxy_lb_sites[site].balance_mode is defined and haproxy_lb_sites[site].balance_mode == "backup" %}
     balance first
     # Special health check that verifies mirror status
     option httpchk GET /status
     http-check expect string READY
     
-    {% if hap_clusters[hap_sites[site].cluster]["nodes"] is defined %}
-    {% for server in hap_clusters[hap_sites[site].cluster].nodes %}
+    {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodes"] is defined %}
+    {% for server in haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodes %}
     {% if loop.first %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} 
     {% else %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} backup
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
     {% endif %}
     {% endfor %}
     {% endif %}
 
-    {% if hap_clusters[hap_sites[site].cluster]["nodeGroup"] is defined %}
-    {% for server in groups[hap_clusters[hap_sites[site].cluster].nodeGroup] %}
+    {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodeGroup"] is defined %}
+    {% for server in groups[haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroup] %}
     {% if loop.first %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} 
     {% else %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} backup
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
     {% endif %}
     {% endfor %}
     {% endif %}
     
-    {% if hap_clusters[hap_sites[site].cluster]["nodeGroups"] is defined %}
+    {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodeGroups"] is defined %}
         # Using nodegroups
-        {% set first_group = hap_clusters[hap_sites[site].cluster].nodeGroups[0] %}
-        {% set target_servers = groups[first_group] | intersect(hap_clusters[hap_sites[site].cluster].nodeGroups[1:] | map('extract', groups) | list) %}
+        {% set first_group = haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroups[0] %}
+        {% set target_servers = groups[first_group] | intersect(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroups[1:] | map('extract', groups) | list) %}
         {% for server in target_servers %}
         {% if loop.first %}
-        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
+        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} 
         {% else %}
-        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} backup
+        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
         {% endif %}
         {% endfor %}
     {% endif %}
@@ -441,31 +441,31 @@ backend {{ site }}
     {% else %}
     balance roundrobin
     
-    {% if hap_clusters[hap_sites[site].cluster]["nodes"] is defined %}
-    {% for server in hap_clusters[hap_sites[site].cluster].nodes %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
+    {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodes"] is defined %}
+    {% for server in haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodes %}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} 
     {% endfor %}
     {% endif %}
 
-    {% if hap_clusters[hap_sites[site].cluster]["nodeGroup"] is defined %}
-    {% for server in groups[hap_clusters[hap_sites[site].cluster].nodeGroup] %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
+    {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodeGroup"] is defined %}
+    {% for server in groups[haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroup] %}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} 
     {% endfor %}
     {% endif %}
     
-    {% if hap_clusters[hap_sites[site].cluster]["nodeGroups"] is defined %}
+    {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodeGroups"] is defined %}
         # Using nodegroups
-        {% set first_group = hap_clusters[hap_sites[site].cluster].nodeGroups[0] %}
-        {% set target_servers = groups[first_group] | intersect(hap_clusters[hap_sites[site].cluster].nodeGroups[1:] | map('extract', groups) | list) %}
+        {% set first_group = haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroups[0] %}
+        {% set target_servers = groups[first_group] | intersect(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroups[1:] | map('extract', groups) | list) %}
         {% for server in target_servers %}
-        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_sites[site].port | default(hap_clusters[hap_sites[site].cluster].defaultPort | default('80')) }} 
+        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} 
         {% endfor %}
     {% endif %}
 
     {% endif %}
 {% endfor %}
 
-{% for cluster in hap_k8s_services %}
+{% for cluster in haproxy_lb_k8s_services %}
 {% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-public"] is defined and svc.metadata.annotations["ethquokkaops.io/domain"] is defined %}
 
 backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
@@ -509,30 +509,30 @@ backend tcp_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name
 {% endfor %}
 {% endfor %}
 
-{% if hap_tunnels is defined %}
-{% for tun in hap_tunnels %}
+{% if haproxy_lb_tunnels is defined %}
+{% for tun in haproxy_lb_tunnels %}
 backend tcp_{{ tun }}
     mode tcp
     balance roundrobin
 
-    default-server check maxconn {{ hap_tunnels[tun].maxconn | default('500') }} fall 3 rise 2
+    default-server check maxconn {{ haproxy_lb_tunnels[tun].maxconn | default('500') }} fall 3 rise 2
 
-    {% if hap_clusters[hap_tunnels[tun].cluster]["nodes"] is defined %}
-    {% for server in hap_clusters[hap_tunnels[tun].cluster].nodes %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_tunnels[tun].cluster_port }} 
+    {% if haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster]["nodes"] is defined %}
+    {% for server in haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster].nodes %}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_tunnels[tun].cluster_port }} 
     {% endfor %}
     {% endif %}
     
-    {% if hap_clusters[hap_tunnels[tun].cluster]["nodeGroup"] is defined %}
-    {% for server in groups[hap_clusters[hap_tunnels[tun].cluster].nodeGroup] %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_tunnels[tun].cluster_port }} 
+    {% if haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster]["nodeGroup"] is defined %}
+    {% for server in groups[haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster].nodeGroup] %}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_tunnels[tun].cluster_port }} 
     {% endfor %}
     {% endif %}
     
-    {% if hap_clusters[hap_tunnels[tun].cluster]["nodeGroups"] is defined %}
+    {% if haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster]["nodeGroups"] is defined %}
     # using nodegroups
     
-    {% set node_groups = hap_clusters[hap_tunnels[tun].cluster].nodeGroups %}
+    {% set node_groups = haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster].nodeGroups %}
     {% if node_groups | length > 0 %}
       {% set outer_target_servers = groups[node_groups[0]] %}
 
@@ -548,7 +548,7 @@ backend tcp_{{ tun }}
     {% endif %}
     # FINAL: {{ target_servers | join(', ')}}
     {% for server in target_servers %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ hap_tunnels[tun].cluster_port }} 
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_tunnels[tun].cluster_port }} 
     {% endfor %}
     {% endif %}
 

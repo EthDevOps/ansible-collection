@@ -27,6 +27,7 @@
     dest: /usr/local/bin/prepare-certs.sh
     mode: '0755'
 - name: Check if domain has already a certificate
+  check_mode: false
   ansible.builtin.stat:
     path: /etc/letsencrypt/live/{{ item.domain }}
   loop: "{{ acme_certificates_cert_domains }}"
