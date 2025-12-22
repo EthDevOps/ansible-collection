@@ -1,0 +1,128 @@
+---
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - gpg
+      - curl
+    state: present
+    update_cache: true
+
+- name: Make sure apt keyrings directory exists
+  ansible.builtin.file:
+    state: directory
+    path: /etc/apt/keyrings
+    mode: "0755"
+
+- name: Get OpenBao apt key
+  ansible.builtin.get_url:
+    url: https://pkg.openbao.org/gpg.key
+    dest: /etc/apt/keyrings/openbao.asc
+    mode: "0644"
+
+- name: Add OpenBao repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/openbao.asc] https://pkg.openbao.org/deb stable main"
+    filename: openbao
+
+- name: Install OpenBao
+  ansible.builtin.apt:
+    name: openbao
+    state: present
+    update_cache: true
+
+- name: Create openbao-agent directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: openbao
+    group: openbao
+    mode: "0750"
+  loop:
+    - /etc/openbao-agent
+    - /etc/openbao-agent/conf.d
+    - /etc/openbao-agent/templates.d
+    - /var/lib/openbao-agent
+
+- name: Create runtime directory for agent token
+  ansible.builtin.file:
+    path: /run/openbao-agent
+    state: directory
+    owner: openbao
+    group: openbao
+    mode: "0750"
+
+- name: Set OpenBao role name fact
+  ansible.builtin.set_fact:
+    openbao_agent_role_name: "host-{{ inventory_hostname }}"
+
+- name: Fetch role-id from OpenBao on control node
+  ansible.builtin.command:
+    cmd: >
+      bao read -field=role_id
+      auth/{{ openbao_agent_approle_mount_path }}/role/{{ openbao_agent_role_name }}/role-id
+  delegate_to: localhost
+  become: false
+  register: openbao_agent_role_id_result
+  changed_when: false
+
+- name: Set role-id fact
+  ansible.builtin.set_fact:
+    openbao_agent_role_id: "{{ openbao_agent_role_id_result.stdout }}"
+
+- name: Fetch wrapped secret-id from OpenBao on control node
+  ansible.builtin.command:
+    cmd: >
+      bao write -wrap-ttl={{ openbao_agent_wrap_ttl }} -f -field=wrapping_token
+      auth/{{ openbao_agent_approle_mount_path }}/role/{{ openbao_agent_role_name }}/secret-id
+  delegate_to: localhost
+  become: false
+  register: openbao_agent_wrapped_secret_id_result
+  changed_when: false
+
+- name: Set wrapped secret-id fact
+  ansible.builtin.set_fact:
+    openbao_agent_wrapped_secret_id: "{{ openbao_agent_wrapped_secret_id_result.stdout }}"
+
+- name: Deploy role-id file
+  ansible.builtin.copy:
+    content: "{{ openbao_agent_role_id }}"
+    dest: /etc/openbao-agent/role-id
+    owner: openbao
+    group: openbao
+    mode: "0640"
+
+- name: Deploy wrapped secret-id file
+  ansible.builtin.copy:
+    content: "{{ openbao_agent_wrapped_secret_id }}"
+    dest: /etc/openbao-agent/secret-id
+    owner: openbao
+    group: openbao
+    mode: "0640"
+
+- name: Deploy OpenBao agent configuration
+  notify: Restart openbao-agent
+  ansible.builtin.template:
+    src: openbao-agent.hcl.j2
+    dest: /etc/openbao-agent/agent.hcl
+    owner: openbao
+    group: openbao
+    mode: "0640"
+
+- name: Deploy systemd service file
+  notify: Restart openbao-agent
+  ansible.builtin.template:
+    src: openbao-agent.service.j2
+    dest: /etc/systemd/system/openbao-agent.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable and start OpenBao agent
+  ansible.builtin.systemd:
+    name: openbao-agent
+    enabled: true
+    state: started
