@@ -1,0 +1,29 @@
+---
+# OpenBao server address
+openbao_agent_server_addr: "https://vault.example.com:8200"
+
+# AppRole auth mount path
+openbao_agent_approle_mount_path: "approle"
+
+# Role name pattern uses inventory_hostname
+# The actual role name will be: host-{{ inventory_hostname }}
+
+# Wrap TTL for secret-id (how long the wrapped token is valid)
+openbao_agent_wrap_ttl: "120s"
+
+# Agent configuration
+openbao_agent_cache_enabled: false
+openbao_agent_listener_address: "127.0.0.1:8100"
+
+# Auto-auth sink file path (where the agent writes the token)
+openbao_agent_sink_path: "/run/openbao-agent/token"
+
+# Template destinations (optional list of templates the agent should render)
+# Example:
+# openbao_agent_templates:
+#   - source: "/etc/openbao-agent/templates/my-secret.tpl"
+#     destination: "/etc/myapp/secrets.env"
+openbao_agent_templates: []
+
+# Exit after auth (useful for one-shot token retrieval)
+openbao_agent_exit_after_auth: false

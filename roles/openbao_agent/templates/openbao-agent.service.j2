@@ -1,0 +1,26 @@
+[Unit]
+Description=OpenBao Agent
+Documentation=https://openbao.org/docs/agent-and-proxy/agent/
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=openbao
+Group=openbao
+ExecStartPre=/bin/mkdir -p /run/openbao-agent
+ExecStartPre=/bin/chown openbao:openbao /run/openbao-agent
+ExecStart=/usr/bin/bao agent -config=/etc/openbao-agent/agent.hcl -config=/etc/openbao-agent/conf.d/
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/openbao-agent /run/openbao-agent /etc/openbao-agent
+
+[Install]
+WantedBy=multi-user.target

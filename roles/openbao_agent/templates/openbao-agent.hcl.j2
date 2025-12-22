@@ -1,0 +1,52 @@
+pid_file = "/run/openbao-agent/agent.pid"
+
+vault {
+  address = "{{ openbao_agent_server_addr }}"
+}
+
+auto_auth {
+  method "approle" {
+    mount_path = "auth/{{ openbao_agent_approle_mount_path }}"
+    config = {
+      role_id_file_path                   = "/etc/openbao-agent/role-id"
+      secret_id_file_path                 = "/etc/openbao-agent/secret-id"
+      secret_id_response_wrapping_path    = "auth/{{ openbao_agent_approle_mount_path }}/role/{{ openbao_agent_role_name }}/secret-id"
+      remove_secret_id_file_after_reading = true
+    }
+  }
+
+  sink "file" {
+    config = {
+      path = "{{ openbao_agent_sink_path }}"
+      mode = 0640
+    }
+  }
+}
+
+{% if openbao_agent_cache_enabled %}
+cache {
+  use_auto_auth_token = true
+}
+
+listener "tcp" {
+  address     = "{{ openbao_agent_listener_address }}"
+  tls_disable = true
+}
+{% endif %}
+
+{% if openbao_agent_exit_after_auth %}
+exit_after_auth = true
+{% endif %}
+
+{% for template in openbao_agent_templates %}
+template {
+  source      = "{{ template.source }}"
+  destination = "{{ template.destination }}"
+{% if template.perms is defined %}
+  perms       = "{{ template.perms }}"
+{% endif %}
+{% if template.command is defined %}
+  command     = "{{ template.command }}"
+{% endif %}
+}
+{% endfor %}
