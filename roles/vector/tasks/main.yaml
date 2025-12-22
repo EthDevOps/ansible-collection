@@ -79,7 +79,7 @@
 
 - name: Copy OpenBao template config file
   when: vector_use_openbao
-  ansible.builtin.cop:
+  ansible.builtin.copy:
     src: bao_config.hcl
     dest: /etc/openbao-agent/conf.d/vector.hcl
   notify: Restart OpenBao Agent
