@@ -48,8 +48,39 @@
     groups: docker
     append: true
   when: vector_docker_group_check.rc == 0
-- name: Create config file
+
+- name: Create config file (direct)
+  when: not vector_use_openbao
   ansible.builtin.template:
     src: vector.yaml.j2
     dest: /etc/vector/vector.yaml
   notify: Restart Vector
+
+- name: Create config file (openbao)
+  when: vector_use_openbao
+  ansible.builtin.template:
+    src: vector.yaml.tpl
+    dest: /etc/openbao-agent/templates.d/vector.yaml.tpl
+
+- name: Copy OpenBao template config file
+  when: vector_use_openbao
+  ansible.builtin.cop:
+    src: bao_config.hcl
+    dest: /etc/openbao-agent/conf.d/vector.hcl
+  notify: Restart OpenBao Agent
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -10,8 +10,7 @@ auto_auth {
     config = {
       role_id_file_path                   = "/etc/openbao-agent/role-id"
       secret_id_file_path                 = "/etc/openbao-agent/secret-id"
-      secret_id_response_wrapping_path    = "auth/{{ openbao_agent_approle_mount_path }}/role/{{ openbao_agent_role_name }}/secret-id"
-      remove_secret_id_file_after_reading = true
+      remove_secret_id_file_after_reading = fasle
     }
   }
 
