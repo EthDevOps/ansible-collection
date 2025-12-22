@@ -86,19 +86,19 @@
   ansible.builtin.set_fact:
     openbao_agent_role_id: "{{ openbao_agent_role_id_result.stdout }}"
 
-- name: Fetch wrapped secret-id from OpenBao on control node
+- name: Fetch secret-id from OpenBao on control node
   ansible.builtin.command:
     cmd: >
-      bao write -wrap-ttl={{ openbao_agent_wrap_ttl }} -f -field=wrapping_token
+      bao write -f -field=secret_id
       auth/{{ openbao_agent_approle_mount_path }}/role/{{ openbao_agent_role_name }}/secret-id
   delegate_to: localhost
   become: false
-  register: openbao_agent_wrapped_secret_id_result
+  register: openbao_agent_secret_id_result
   changed_when: false
 
-- name: Set wrapped secret-id fact
+- name: Set secret-id fact
   ansible.builtin.set_fact:
-    openbao_agent_wrapped_secret_id: "{{ openbao_agent_wrapped_secret_id_result.stdout }}"
+    openbao_agent_secret_id: "{{ openbao_agent_secret_id_result.stdout }}"
 
 - name: Deploy role-id file
   ansible.builtin.copy:
@@ -106,15 +106,15 @@
     dest: /etc/openbao-agent/role-id
     owner: openbao
     group: openbao
-    mode: "0640"
+    mode: "0400"
 
 - name: Deploy wrapped secret-id file
   ansible.builtin.copy:
-    content: "{{ openbao_agent_wrapped_secret_id }}"
+    content: "{{ openbao_agent_secret_id }}"
     dest: /etc/openbao-agent/secret-id
     owner: openbao
     group: openbao
-    mode: "0640"
+    mode: "0400"
 
 - name: Deploy OpenBao agent configuration
   notify: Restart openbao-agent

@@ -6,3 +6,10 @@
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
+- name: Restart OpenBao Agent
+  ansible.builtin.systemd:
+    name: openbao-agent
+    state: restarted
+  notify: Restart Vector
+
+
