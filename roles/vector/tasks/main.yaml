@@ -56,6 +56,21 @@
     dest: /etc/vector/vector.yaml
   notify: Restart Vector
 
+- name: Ensure ACL package is installed
+  when: vector_use_openbao
+  ansible.builtin.package:
+    name: acl
+    state: present
+
+- name: Set ACL for openbao on a specific file
+  when: vector_use_openbao
+  ansible.posix.acl:
+    path: /etc/vector/vector.yaml
+    entity: user
+    name: openbao
+    etype: acl
+    permissions: rw
+
 - name: Create config file (openbao)
   when: vector_use_openbao
   ansible.builtin.template:
