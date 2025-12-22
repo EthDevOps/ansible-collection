@@ -68,7 +68,7 @@
     path: /etc/vector/vector.yaml
     entity: user
     name: openbao
-    etype: acl
+    etype: user
     permissions: rw
 
 - name: Create config file (openbao)
@@ -83,19 +83,3 @@
     src: bao_config.hcl
     dest: /etc/openbao-agent/conf.d/vector.hcl
   notify: Restart OpenBao Agent
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

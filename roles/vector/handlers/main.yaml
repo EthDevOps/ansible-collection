@@ -11,5 +11,3 @@
     name: openbao-agent
     state: restarted
   notify: Restart Vector
-
-
