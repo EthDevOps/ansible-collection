@@ -3,32 +3,49 @@
   ansible.builtin.apt:
     name:
       - gpg
-      - curl
     state: present
     update_cache: true
 
-- name: Make sure apt keyrings directory exists
-  ansible.builtin.file:
-    state: directory
-    path: /etc/apt/keyrings
-    mode: "0755"
+- name: Set architecture mapping
+  ansible.builtin.set_fact:
+    openbao_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"
 
-- name: Get OpenBao apt key
+- name: Download OpenBao GPG key
   ansible.builtin.get_url:
-    url: https://pkg.openbao.org/gpg.key
-    dest: /etc/apt/keyrings/openbao.asc
+    url: https://openbao.org/assets/openbao-gpg-pub-20240618.asc
+    dest: /tmp/openbao-gpg-pub.asc
     mode: "0644"
 
-- name: Add OpenBao repository
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/openbao.asc] https://pkg.openbao.org/deb stable main"
-    filename: openbao
+- name: Import OpenBao GPG key
+  ansible.builtin.command:
+    cmd: gpg --import /tmp/openbao-gpg-pub.asc
+  register: gpg_import_result
+  changed_when: "'imported' in gpg_import_result.stderr"
 
-- name: Install OpenBao
+- name: Download OpenBao deb package
+  ansible.builtin.get_url:
+    url: "https://github.com/openbao/openbao/releases/download/v{{ openbao_agent_version }}/bao_{{ openbao_agent_version }}_linux_{{ openbao_arch }}.deb"
+    dest: "/tmp/bao_{{ openbao_agent_version }}_linux_{{ openbao_arch }}.deb"
+    mode: "0644"
+
+- name: Download OpenBao deb signature
+  ansible.builtin.get_url:
+    url: "https://github.com/openbao/openbao/releases/download/v{{ openbao_agent_version }}/bao_{{ openbao_agent_version }}_linux_{{ openbao_arch }}.deb.gpgsig"
+    dest: "/tmp/bao_{{ openbao_agent_version }}_linux_{{ openbao_arch }}.deb.gpgsig"
+    mode: "0644"
+
+- name: Verify GPG signature of OpenBao deb package
+  ansible.builtin.command:
+    cmd: >
+      gpg --verify
+      /tmp/bao_{{ openbao_agent_version }}_linux_{{ openbao_arch }}.deb.gpgsig
+      /tmp/bao_{{ openbao_agent_version }}_linux_{{ openbao_arch }}.deb
+  changed_when: false
+
+- name: Install OpenBao from deb package
   ansible.builtin.apt:
-    name: openbao
+    deb: "/tmp/bao_{{ openbao_agent_version }}_linux_{{ openbao_arch }}.deb"
     state: present
-    update_cache: true
 
 - name: Create openbao-agent directories
   ansible.builtin.file:

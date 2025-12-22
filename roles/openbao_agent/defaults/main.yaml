@@ -1,4 +1,7 @@
 ---
+# OpenBao version to install
+openbao_agent_version: "2.4.4"
+
 # OpenBao server address
 openbao_agent_server_addr: "https://vault.example.com:8200"
 
