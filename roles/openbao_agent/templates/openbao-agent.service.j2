@@ -8,6 +8,7 @@ After=network-online.target
 Type=simple
 User=openbao
 Group=openbao
+Environment="HOME=/var/lib/openbao-agent"
 ExecStartPre=/bin/mkdir -p /run/openbao-agent
 ExecStartPre=/bin/chown openbao:openbao /run/openbao-agent
 ExecStart=/usr/bin/bao agent -config=/etc/openbao-agent/agent.hcl -config=/etc/openbao-agent/conf.d/
