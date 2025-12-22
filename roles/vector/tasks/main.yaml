@@ -62,14 +62,25 @@
     name: acl
     state: present
 
+- name: Ensure vector config file exists for ACL
+  when: vector_use_openbao
+  ansible.builtin.file:
+    path: /etc/vector/vector.yaml
+    state: touch
+    owner: root
+    group: root
+    mode: '0644'
+    modification_time: preserve
+    access_time: preserve
+
 - name: Set ACL for openbao on a specific file
   when: vector_use_openbao
   ansible.posix.acl:
     path: /etc/vector/vector.yaml
-    entity: user
-    name: openbao
+    entity: openbao
     etype: user
     permissions: rw
+    state: present
 
 - name: Create config file (openbao)
   when: vector_use_openbao
