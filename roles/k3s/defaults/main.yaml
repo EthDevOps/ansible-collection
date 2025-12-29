@@ -26,3 +26,4 @@ k3s_etcd_snapshot_region: us-east-1
 k3s_etcd_snapshot_folder: snapshots
 k3s_etcd_snapshot_insecure: false
 k3s_etcd_snapshot_timeout: 5m0s
+k3s_docker_cache: ""

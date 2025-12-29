@@ -6,6 +6,9 @@
       ansible.builtin.import_tasks: prereq.yaml
     - name: Download k3s
       ansible.builtin.import_tasks: download.yaml
+    - name: Setup Docker Cache
+      ansible.builtin.import_tasks: cache.yaml
+      when: k3s_docker_cache != ""
     - name: Setup server node
       ansible.builtin.import_tasks: server.yaml
       when: k3s_role == "server"

@@ -1,0 +1,11 @@
+---
+- name: Create cache config directory
+  file:
+    state: directory
+    path: /etc/rancher/k3s
+    mode: '0755'
+- name: Copy cache config
+  ansible.builtin.template:
+    src: registries.yaml.j2
+    dest: /etc/rancher/k3s/registries.yaml
+    mode: '0644'
