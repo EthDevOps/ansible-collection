@@ -4,6 +4,8 @@
     k3s_bootstrap_host: "{{ item }}"
   loop: "{{ groups['device_roles_k3s-server'] | map('extract', hostvars) | selectattr('k3s_bootstrap', 'defined') | list }}"
   when: k3s_bootstrap_host is not defined
+  loop_control:
+    label: "{{ item.inventory_hostname }}"
 - name: Set bootstrap
   when: k3s_bootstrap is not defined
   ansible.builtin.set_fact:
