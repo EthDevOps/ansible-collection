@@ -2,7 +2,8 @@
 # Shared context
 vrrp_shared_ip: 192.168.200.10
 vrrp_secret: kEaBoGqvHkXdxw8yWxGXfv9E5SQ79NZT
-vrrp_group: 51
+vrrp_group_v4: 51
+vrrp_group_v6: 52
 # Host context
 vrrp_role: master
 vrrp_priority: 100

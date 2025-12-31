@@ -18,7 +18,7 @@ vrrp_sync_group VI_1 {
 vrrp_instance VI_1_4 {
     state {{ vrrp_role | upper }}
     interface eth0  # Change this to your actual interface name
-    virtual_router_id {{ vrrp_group }}
+    virtual_router_id {{ vrrp_group_v4 }}
     priority {{ vrrp_priority }}  # Set higher on the MASTER
     advert_int 1
     authentication {
@@ -36,7 +36,7 @@ vrrp_instance VI_1_4 {
 vrrp_instance VI_1_6 {
     state {{ vrrp_role | upper }}
     interface eth0  # Change this to your actual interface name
-    virtual_router_id {{ vrrp_group }}
+    virtual_router_id {{ vrrp_group_v6 }}
     priority {{ vrrp_priority }}  # Set higher on the MASTER
     advert_int 1
     authentication {
