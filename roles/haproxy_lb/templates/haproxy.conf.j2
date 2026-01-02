@@ -219,6 +219,7 @@ frontend http
    {# Sort services: those with path annotations first (more specific routes) #}
    {% set services_with_path = [] %}
    {% set services_without_path = [] %}
+   
    {% for svc in cluster.resources %}
    {% if svc.metadata.annotations["ethquokkaops.io/expose-public"] is defined and svc.metadata.annotations["ethquokkaops.io/domain"] is defined %}
    {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
@@ -228,6 +229,8 @@ frontend http
    {% endif %}
    {% endif %}
    {% endfor %}
+   
+   
    {% set sorted_services = services_with_path + services_without_path %}
    {% for svc in sorted_services %}
     # START K8s SITE: {{ cluster.item }} => {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
@@ -245,9 +248,12 @@ frontend http
     {% if svc.metadata.annotations["ethquokkaops.io/auth-group"] is defined %}
     http-request auth if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} !{ http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) }
     {% endif %}
-    {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
-    acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ svc.metadata.annotations["ethquokkaops.io/path"] }}
-    {% endif %}
+
+    {% set paths = svc.metadata.annotations["ethquokkaops.io/path"].split(',') | map('trim') | list %}
+    {% for path in paths %}
+    acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ path }} 
+    {% endfor %}
+
     {% if svc.metadata.annotations["ethquokkaops.io/internal-only"] is defined %}
     http-request deny if { hdr(host) -i {{ domain }} } !{ src 10.128.0.0/9 }
     {% endif %}
