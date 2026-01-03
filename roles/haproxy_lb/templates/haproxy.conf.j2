@@ -249,10 +249,12 @@ frontend http
     http-request auth if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} !{ http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) }
     {% endif %}
 
+    {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
     {% set paths = svc.metadata.annotations["ethquokkaops.io/path"].split(',') | map('trim') | list %}
     {% for path in paths %}
     acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ path }} 
     {% endfor %}
+    {% endif %}
 
     {% if svc.metadata.annotations["ethquokkaops.io/internal-only"] is defined %}
     http-request deny if { hdr(host) -i {{ domain }} } !{ src 10.128.0.0/9 }
