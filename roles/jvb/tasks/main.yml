@@ -7,3 +7,5 @@
   ansible.builtin.import_tasks: firewall.yaml
 - name: Tune apt
   ansible.builtin.import_tasks: tune-apt.yaml
+- name: Tune sysctl
+  ansible.builtin.import_tasks: tune-sysctl.yaml

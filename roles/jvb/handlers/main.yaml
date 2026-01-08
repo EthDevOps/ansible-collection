@@ -13,3 +13,7 @@
 - name: Update apt cache
   ansible.builtin.apt:
     update_cache: true
+- name: Apply sysctl settings
+  ansible.builtin.command:
+    cmd: sysctl -p /etc/sysctl.d/21-jvb-tuning.conf
+  changed_when: true
