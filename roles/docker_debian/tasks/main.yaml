@@ -15,14 +15,21 @@
     - gnupg
     - lsb-release
     - python3-docker
-- name: Add Docker GPG key
-  ansible.builtin.apt_key:
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+  become: true
+- name: Download Docker GPG key
+  ansible.builtin.get_url:
     url: "{{ docker_debian_gpg_key }}"
-    state: present
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
   become: true
 - name: Add Docker repository
   ansible.builtin.apt_repository:
-    repo: "deb [arch=amd64] {{ docker_debian_repository }} {{ ansible_distribution_release }} stable"
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] {{ docker_debian_repository }} {{ ansible_distribution_release }} stable"
     state: present
     update_cache: true
   become: true
