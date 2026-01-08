@@ -27,6 +27,6 @@ openbao_agent_sink_path: "/run/openbao-agent/token"
 #   - source: "/etc/openbao-agent/templates/my-secret.tpl"
 #     destination: "/etc/myapp/secrets.env"
 openbao_agent_templates: []
-
+openbao_agent_extra_dirs: ""
 # Exit after auth (useful for one-shot token retrieval)
 openbao_agent_exit_after_auth: false
