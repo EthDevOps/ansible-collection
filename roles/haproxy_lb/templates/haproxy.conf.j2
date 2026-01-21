@@ -587,7 +587,11 @@ backend {{ backend_name }}
     compression offload
 
     default-server check fall 3 rise 2
-    
+    {% if haproxy_lb_backend_extra_config is defined and domain in haproxy_lb_backend_extra_config %}
+    # Custom backend configuration
+{{ haproxy_lb_backend_extra_config[domain] | indent(4, first=True) }}
+    {% endif %}
+
     {% if services[0].svc.custom_fields.balance_mode is defined and services[0].svc.custom_fields.balance_mode == "backup" %}
     balance first
     # Special health check that verifies mirror status

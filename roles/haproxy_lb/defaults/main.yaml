@@ -11,3 +11,7 @@ haproxy_lb_sites: []
 haproxy_lb_tunnels: []
 haproxy_lb_redirects: []
 haproxy_lb_k8s_services: []
+
+# Custom backend configuration snippets for domain_groups backends
+# Keyed by domain name, value is raw HAProxy config to inject
+haproxy_lb_backend_extra_config: {}
