@@ -12,6 +12,11 @@ haproxy_lb_tunnels: []
 haproxy_lb_redirects: []
 haproxy_lb_k8s_services: []
 
-# Custom backend configuration snippets for domain_groups backends
-# Keyed by domain name, value is raw HAProxy config to inject
+# Custom backend configuration snippets for HAProxy backends
+# Keyed by backend name, value is raw HAProxy config to inject
+# Supported backend types and their keys:
+#   - Static sites: site name (e.g., "mysite")
+#   - K8s HTTP services: "cluster_namespace_servicename" (e.g., "prod_default_myapp")
+#   - K8s TCP services: "tcp_cluster_namespace_servicename" (e.g., "tcp_prod_default_postgres")
+#   - Domain groups: domain name (e.g., "example.com")
 haproxy_lb_backend_extra_config: {}

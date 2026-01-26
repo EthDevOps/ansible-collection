@@ -471,6 +471,10 @@ backend {{ site }}
     {% endif %}
 
     {% endif %}
+    {% if haproxy_lb_backend_extra_config is defined and site in haproxy_lb_backend_extra_config %}
+    # Custom backend configuration
+{{ haproxy_lb_backend_extra_config[site] | indent(4, first=True) }}
+    {% endif %}
 {% endfor %}
 
 {% for cluster in haproxy_lb_k8s_services %}
@@ -504,6 +508,11 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'alpn h2,http/1.1' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}{{ loop.index if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}
 
     server metallb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip}}:{{ svc.spec.ports[0].port }}
+    {% set k8s_backend_name = cluster.item ~ '_' ~ svc.metadata.namespace ~ '_' ~ svc.metadata.name %}
+    {% if haproxy_lb_backend_extra_config is defined and k8s_backend_name in haproxy_lb_backend_extra_config %}
+    # Custom backend configuration
+{{ haproxy_lb_backend_extra_config[k8s_backend_name] | indent(4, first=True) }}
+    {% endif %}
 
 {% endfor %}
 
@@ -514,6 +523,11 @@ backend tcp_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name
 
     default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('30') }} fall 3 rise 2
     server metallb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip}}:{{ svc.metadata.annotations["ethquokkaops.io/service-port"] | default(svc.spec.ports[0].port) }}
+    {% set k8s_tcp_backend_name = 'tcp_' ~ cluster.item ~ '_' ~ svc.metadata.namespace ~ '_' ~ svc.metadata.name %}
+    {% if haproxy_lb_backend_extra_config is defined and k8s_tcp_backend_name in haproxy_lb_backend_extra_config %}
+    # Custom backend configuration
+{{ haproxy_lb_backend_extra_config[k8s_tcp_backend_name] | indent(4, first=True) }}
+    {% endif %}
 {% endfor %}
 {% endfor %}
 
