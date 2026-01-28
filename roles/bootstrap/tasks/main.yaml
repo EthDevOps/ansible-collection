@@ -10,3 +10,6 @@
 - name: Setup storage optimization
   ansible.builtin.import_tasks: storage_optimization.yaml
   when: bootstrap_storage_optimized is defined and bootstrap_storage_optimized | bool
+- name: Disable automatic updates
+  ansible.builtin.import_tasks: disable_auto_updates.yaml
+  when: ansible_distribution == "Ubuntu"
