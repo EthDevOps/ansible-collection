@@ -73,7 +73,16 @@
     modification_time: preserve
     access_time: preserve
 
-- name: Set ACL for openbao on a specific file
+- name: Set ACL for openbao on vector dir
+  when: vector_use_openbao
+  ansible.posix.acl:
+    path: /etc/vector
+    entity: openbao
+    etype: user
+    permissions: rwx
+    state: present
+
+- name: Set ACL for openbao on vector config
   when: vector_use_openbao
   ansible.posix.acl:
     path: /etc/vector/vector.yaml
