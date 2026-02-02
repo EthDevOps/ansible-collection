@@ -286,10 +286,19 @@ frontend http
    {# Generate ACLs and routing for each domain group #}
    {% for domain, services in domain_groups.items() %}
    {% set first_service = services[0] %}
-   {% set backend_name = 'lb_' + (domain | replace('.', '_') | replace('-', '_')) %}
+   {% set backend_name = 'lb_' + (domain | replace('.', '_') | replace('-', '_') | replace('*','_')) %}
 
-    # START DOMAIN GROUP: {{ domain }} ({{ services | length }} service(s))
+    {% if domain.startswith('*.') %}
+    {# Wildcard domain - match subdomains using suffix matching #}
+    {% set base_domain = domain[2:] %}
+
+    acl host_{{ backend_name }} hdr_dom(host) -i -m end .{{ base_domain }}
+    {# Optionally also match the base domain itself #}
+    acl host_{{ backend_name }} hdr_dom(host) -i {{ base_domain }}
+    {% else %}
+    {# Exact domain match #}
     acl host_{{ backend_name }} hdr_dom(host) -i {{ domain }}
+    {% endif %}
    
     {% if first_service.svc.custom_fields.internal_only is defined and first_service.svc.custom_fields.internal_only == "true" %}
     http-request deny if { hdr(host) -i {{ domain }} } !{ src 10.128.0.0/9 }
