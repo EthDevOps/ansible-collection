@@ -588,7 +588,7 @@ backend tcp_{{ tun }}
 
 {# Create shared backends for load balancing services with same domain #}
 {% for domain, services in domain_groups.items() %}
-{% set backend_name = 'lb_' + (domain | replace('.', '_') | replace('-', '_')) %}
+{% set backend_name = 'lb_' + (domain | replace('.', '_') | replace('-', '_') | replace('*','_')) %}
 backend {{ backend_name }}
     option forwardfor
     option forwarded
