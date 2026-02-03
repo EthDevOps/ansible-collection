@@ -1,6 +1,10 @@
 ---
 acme_certificates_server: acme.ethquokkaops.io
 acme_certificates_cert_email: devops+acme@ethereum.org
+# Certificate profile: "default" (90-day) or "shortlived" (6-day)
+acme_certificates_profile: default
+# Renewal interval in hours (24 for default certs, 8 for short-lived)
+acme_certificates_renewal_hours: 24
 acme_certificates_cert_domains:
   - domain: keil-connect.com
     username: example

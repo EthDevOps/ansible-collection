@@ -44,13 +44,15 @@
     cmd: >-
       certbot certonly -n -m '{{ acme_certificates_cert_email }}' --agree-tos --manual
       --manual-auth-hook '/usr/local/bin/acme-dns-certbot-hook -config /etc/acme-dns.cfg'
-      --preferred-challenges dns -d {{ item.item.domain }} -d '*.{{ item.item.domain }}'
+      --preferred-challenges dns
+      {% if acme_certificates_profile == 'shortlived' %}--preferred-profile shortlived{% endif %}
+      -d {{ item.item.domain }} -d '*.{{ item.item.domain }}'
 - name: Prepare haproxy certs
   ansible.builtin.command:
     cmd: /usr/local/bin/prepare-certs.sh
 - name: Add certificate auto-renew to cron
   ansible.builtin.cron:
     name: renew certificates
-    minute: "0"
-    hour: "{{ 12 + ansible_play_hosts.index(inventory_hostname) }}"
+    minute: "{{ ansible_play_hosts.index(inventory_hostname) * 10 }}"
+    hour: "*/{{ acme_certificates_renewal_hours }}"
     job: "/usr/bin/certbot renew --post-hook '/usr/local/bin/prepare-certs.sh'"
