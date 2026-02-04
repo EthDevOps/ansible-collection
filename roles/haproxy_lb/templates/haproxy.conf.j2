@@ -234,6 +234,29 @@ frontend http
    {% set sorted_services = services_with_path + services_without_path %}
    {% for svc in sorted_services %}
     # START K8s SITE: {{ cluster.item }} => {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    {% if svc.metadata.annotations["ethquokkaops.io/domain-port-map"] is defined %}
+    {# Multi-port mapping: each domain routes to a specific port #}
+    {% set port_mappings = svc.metadata.annotations["ethquokkaops.io/domain-port-map"].split(',') | map('trim') | list %}
+    {% for mapping in port_mappings %}
+    {% set domain = mapping.split(':')[0] | trim %}
+    {% set portname = mapping.split(':')[1] | trim %}
+    # Multi-port mapping: {{ domain }} -> {{ portname }}
+    acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} hdr_dom(host) -i {{ domain }}
+    {% if svc.metadata.annotations["ethquokkaops.io/auth-group"] is defined %}
+    http-request auth if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} !{ http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) }
+    {% endif %}
+    {% if svc.metadata.annotations["ethquokkaops.io/internal-only"] is defined %}
+    http-request deny if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} !{ src 10.128.0.0/9 }
+    {% endif %}
+    {% if svc.metadata.annotations["ethquokkaops.io/use_cache"] is defined and svc.metadata.annotations["ethquokkaops.io/use_cache"] == 'true' %}
+    http-request cache-use global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
+    http-response cache-store global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
+    {% endif %}
+    use_backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
+
+    {% endfor %}
+    {% else %}
+    {# Standard single-domain routing #}
     {% set domains = svc.metadata.annotations["ethquokkaops.io/domain"].split(',') | map('trim') | list %}
     {% for domain in domains %}
     {% if svc.metadata.annotations["ethquokkaops.io/match-exact"] is defined %}
@@ -252,7 +275,7 @@ frontend http
     {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
     {% set paths = svc.metadata.annotations["ethquokkaops.io/path"].split(',') | map('trim') | list %}
     {% for path in paths %}
-    acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ path }} 
+    acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ path }}
     {% endfor %}
     {% endif %}
 
@@ -265,7 +288,8 @@ frontend http
     {% endif %}
 
     use_backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %} path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}{% endif %}
-    
+
+    {% endif %}
     # END SITE: {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
 
    {% endfor %}
@@ -488,12 +512,64 @@ backend {{ site }}
 
 {% for cluster in haproxy_lb_k8s_services %}
 {% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-public"] is defined and svc.metadata.annotations["ethquokkaops.io/domain"] is defined %}
+{% if svc.metadata.annotations["ethquokkaops.io/domain-port-map"] is defined %}
+{# Multi-port mapping: create a backend for each unique port #}
+{% set port_mappings = svc.metadata.annotations["ethquokkaops.io/domain-port-map"].split(',') | map('trim') | list %}
+{% set ns = namespace(processed_ports=[]) %}
+{% for mapping in port_mappings %}
+{% set portname = mapping.split(':')[1] | trim %}
+{% if portname not in ns.processed_ports %}
+{% set _ = ns.processed_ports.append(portname) %}
+{# Find the port number for this port name #}
+{% set port_ns = namespace(port_number=None) %}
+{% for port in svc.spec.ports %}
+{% if port.name == portname %}
+{% set port_ns.port_number = port.port %}
+{% endif %}
+{% endfor %}
 
+backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
+    balance roundrobin
+    option forwardfor
+    option forwarded
+
+    # keep websockets around for 2h
+    timeout tunnel 2h
+
+    # only keep clients in the connection queue for 1 minute
+    timeout queue 60s
+
+    http-request set-header X-Forwarded-Port %[dst_port]
+    http-request add-header X-Forwarded-Proto https if { ssl_fc }
+
+    # Enable compression towards the client
+    filter compression
+    compression algo gzip
+    compression type text/css text/html text/javascript application/javascript text/plain text/xml application/json
+    compression offload
+
+    {% if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined and svc.metadata.annotations["ethquokkaops.io/sticky"] == 'true' %}
+    cookie SERVER_USED insert indirect nocache
+    {% endif %}
+
+    default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'alpn h2,http/1.1' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}
+
+    server metallb_{{ svc.metadata.name }}_{{ portname }} {{ svc.status.loadBalancer.ingress[0].ip}}:{{ port_ns.port_number }}
+    {% set k8s_backend_name = cluster.item ~ '_' ~ svc.metadata.namespace ~ '_' ~ svc.metadata.name ~ '_' ~ portname %}
+    {% if haproxy_lb_backend_extra_config is defined and k8s_backend_name in haproxy_lb_backend_extra_config %}
+    # Custom backend configuration
+{{ haproxy_lb_backend_extra_config[k8s_backend_name] | indent(4, first=True) }}
+    {% endif %}
+
+{% endif %}
+{% endfor %}
+{% else %}
+{# Standard single-backend routing #}
 backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     balance roundrobin
     option forwardfor
     option forwarded
-    
+
     # keep websockets around for 2h
     timeout tunnel 2h
 
@@ -523,6 +599,7 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
 {{ haproxy_lb_backend_extra_config[k8s_backend_name] | indent(4, first=True) }}
     {% endif %}
 
+{% endif %}
 {% endfor %}
 
 {% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-tcp"] is defined %}

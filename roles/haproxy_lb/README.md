@@ -98,7 +98,8 @@ haproxy_lb_k8s_services:
 | Annotation | Description |
 |------------|-------------|
 | `ethquokkaops.io/expose-public` | Required. Enables HTTP exposure |
-| `ethquokkaops.io/domain` | Required. Comma-separated list of domains |
+| `ethquokkaops.io/domain` | Required (unless using `domain-port-map`). Comma-separated list of domains |
+| `ethquokkaops.io/domain-port-map` | Optional. Map different domains to different service ports (see below) |
 | `ethquokkaops.io/path` | Optional. Comma-separated path prefixes for routing |
 | `ethquokkaops.io/match-exact` | Optional. Use exact host matching instead of domain suffix |
 | `ethquokkaops.io/allow-subdomains` | Optional. Also match subdomains (e.g., `*.example.com`) |
@@ -111,6 +112,38 @@ haproxy_lb_k8s_services:
 | `ethquokkaops.io/max-conn` | Optional. Max connections per server (default: 500) |
 
 **Backend name format:** `{cluster}_{namespace}_{servicename}` (e.g., `prod_default_myservice`)
+
+#### Multi-Port Domain Mapping
+
+Use `ethquokkaops.io/domain-port-map` to route different domains to different ports on the same service. This is useful for services that expose multiple endpoints (e.g., metrics, traces, API) on different ports.
+
+**Format:** `domain1:portname1,domain2:portname2`
+
+**Example:**
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: tempo
+  namespace: monitoring
+  annotations:
+    ethquokkaops.io/expose-public: "true"
+    ethquokkaops.io/domain: "tempo.example.com"  # Ignored when domain-port-map is present
+    ethquokkaops.io/domain-port-map: "tempo-traces.example.com:tempo-otlp-http,tempo-metrics.example.com:tempo-prom-metrics"
+spec:
+  type: LoadBalancer
+  ports:
+    - name: tempo-otlp-http
+      port: 4318
+    - name: tempo-prom-metrics
+      port: 3200
+```
+
+This generates:
+- `tempo-traces.example.com` → backend on port 4318
+- `tempo-metrics.example.com` → backend on port 3200
+
+**Backend name format with domain-port-map:** `{cluster}_{namespace}_{servicename}_{portname}` (e.g., `prod_monitoring_tempo_tempo_otlp_http`)
 
 ### 3. Kubernetes TCP Services
 
@@ -261,6 +294,7 @@ haproxy_lb_backend_extra_config:
 |--------------|------------|---------|
 | Static sites | Site name | `myapp` |
 | K8s HTTP services | `{cluster}_{namespace}_{service}` | `prod_default_myservice` |
+| K8s HTTP services (multi-port) | `{cluster}_{namespace}_{service}_{portname}` | `prod_monitoring_tempo_tempo_otlp_http` |
 | K8s TCP services | `tcp_{cluster}_{namespace}_{service}` | `tcp_prod_default_postgres` |
 | Domain groups | Domain name | `app.example.com` |
 
