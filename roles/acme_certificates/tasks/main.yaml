@@ -63,19 +63,35 @@
   register: acme_certificates_cert_status
   loop_control:
     label: "{{ item.domain }}"
-- name: Request certificates for new domains from Let's Encrypt
-  throttle: 1
-  when: not item.stat.exists
+- name: Get certificate validity period for existing certs
+  when: item.stat.exists
+  ansible.builtin.shell:
+    cmd: |
+      start=$(openssl x509 -startdate -noout -in /etc/letsencrypt/live/{{ item.item.domain }}/cert.pem | cut -d= -f2)
+      end=$(openssl x509 -enddate -noout -in /etc/letsencrypt/live/{{ item.item.domain }}/cert.pem | cut -d= -f2)
+      echo $(( ($(date -d "$end" +%s) - $(date -d "$start" +%s)) / 86400 ))
   loop: "{{ acme_certificates_cert_status.results }}"
   loop_control:
     label: "{{ item.item.domain }}"
+  register: acme_certificates_cert_validity
+  changed_when: false
+- name: Request certificates for new domains from Let's Encrypt
+  throttle: 1
+  when: >-
+    not item.0.stat.exists or
+    (item.0.stat.exists and acme_certificates_profile == 'shortlived' and (item.1.stdout | default('0') | int) > 30) or
+    (item.0.stat.exists and acme_certificates_profile == 'default' and (item.1.stdout | default('90') | int) <= 30)
+  loop: "{{ acme_certificates_cert_status.results | zip(acme_certificates_cert_validity.results | default([])) | list }}"
+  loop_control:
+    label: "{{ item.0.item.domain }}"
   ansible.builtin.command:
     cmd: >-
       certbot certonly -n -m '{{ acme_certificates_cert_email }}' --agree-tos --manual
       --manual-auth-hook '/usr/local/bin/acme-dns-certbot-hook -config /etc/acme-dns.cfg'
       --preferred-challenges dns
+      {% if item.0.stat.exists %}--force-renewal{% endif %}
       {% if acme_certificates_profile == 'shortlived' %}--preferred-profile shortlived{% endif %}
-      -d {{ item.item.domain }} -d '*.{{ item.item.domain }}'
+      -d {{ item.0.item.domain }} -d '*.{{ item.0.item.domain }}'
 - name: Prepare haproxy certs
   ansible.builtin.command:
     cmd: /usr/local/bin/prepare-certs.sh
