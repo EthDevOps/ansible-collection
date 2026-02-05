@@ -442,9 +442,6 @@ backend {{ site }}
 
     {% if haproxy_lb_sites[site].balance_mode is defined and haproxy_lb_sites[site].balance_mode == "backup" %}
     balance first
-    # Special health check that verifies mirror status
-    option httpchk GET /status
-    http-check expect string READY
     
     {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodes"] is defined %}
     {% for server in haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodes %}
