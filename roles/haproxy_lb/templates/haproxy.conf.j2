@@ -691,9 +691,6 @@ backend {{ backend_name }}
 
     {% if services[0].svc.custom_fields.balance_mode is defined and services[0].svc.custom_fields.balance_mode == "backup" %}
     balance first
-    # Special health check that verifies mirror status
-    option httpchk GET /status
-    http-check expect string READY
     
     # Load balanced servers for domain: {{ domain }}
     {% for service_info in services %}
