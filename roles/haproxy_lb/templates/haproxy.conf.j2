@@ -236,12 +236,12 @@ frontend http
    {% for svc in sorted_services %}
     # START K8s SITE: {{ cluster.item }} => {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     {% if svc.metadata.annotations["ethquokkaops.io/domain-port-map"] is defined %}
-    {# Multi-port mapping: each domain routes to a specific port #}
+    {# Multi-port mapping: each port routes to a specific domain #}
     {% set port_mappings = svc.metadata.annotations["ethquokkaops.io/domain-port-map"].split(',') | map('trim') | list %}
     {% for mapping in port_mappings %}
-    {% set domain = mapping.split(':')[0] | trim %}
-    {% set portname = mapping.split(':')[1] | trim %}
-    # Multi-port mapping: {{ domain }} -> {{ portname }}
+    {% set portname = mapping.split(':')[0] | trim %}
+    {% set domain = mapping.split(':')[1] | trim %}
+    # Multi-port mapping: {{ portname }} -> {{ domain }}
     acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} hdr_dom(host) -i {{ domain }}
     {% if svc.metadata.annotations["ethquokkaops.io/auth-group"] is defined %}
     http-request auth if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} !{ http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) }
@@ -419,11 +419,13 @@ backend {{ site }}
     http-request set-header X-Forwarded-Port %[dst_port]
     http-request add-header X-Forwarded-Proto https if { ssl_fc }
 
+    {% if haproxy_lb_sites[site].backend_mode | default("http") != "grpc" %}
     # Enable compression towards the client
     filter compression
     compression algo gzip
     compression type text/css text/html text/javascript application/javascript text/plain text/xml application/json
     compression offload
+    {% endif %}
 
     {% if haproxy_lb_sites[site]["auth"] is defined %}
     acl basic-auth http_auth({{ haproxy_lb_sites[site]["auth"] }})
@@ -439,7 +441,7 @@ backend {{ site }}
     cookie SERVER_USED insert indirect nocache
     {% endif %}
 
-    default-server check maxconn {{ haproxy_lb_sites[site].max_conn | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if haproxy_lb_sites[site].sslbackend is defined else '' }} {{ 'alpn h2,http/1.1' if haproxy_lb_sites[site].http2 is defined else '' }} {{ 'cookie s' if haproxy_lb_sites[site]["use_sticky"] is defined }}{{ loop.index if haproxy_lb_sites[site]["use_sticky"] is defined }}
+    default-server check maxconn {{ haproxy_lb_sites[site].max_conn | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if haproxy_lb_sites[site].sslbackend is defined else '' }} {{ 'alpn h2,http/1.1' if haproxy_lb_sites[site].http2 is defined else '' }} {{ 'cookie s' if haproxy_lb_sites[site]["use_sticky"] is defined }}{{ loop.index if haproxy_lb_sites[site]["use_sticky"] is defined }} {{ 'proto h2' if haproxy_lb_sites[site].backend_mode | default("http") == "grpc" else '' }}
 
     {% if haproxy_lb_sites[site].balance_mode is defined and haproxy_lb_sites[site].balance_mode == "backup" %}
     balance first
@@ -515,7 +517,7 @@ backend {{ site }}
 {% set port_mappings = svc.metadata.annotations["ethquokkaops.io/domain-port-map"].split(',') | map('trim') | list %}
 {% set ns = namespace(processed_ports=[]) %}
 {% for mapping in port_mappings %}
-{% set portname = mapping.split(':')[1] | trim %}
+{% set portname = mapping.split(':')[0] | trim %}
 {% if portname not in ns.processed_ports %}
 {% set _ = ns.processed_ports.append(portname) %}
 {# Find the port number for this port name #}
@@ -525,6 +527,18 @@ backend {{ site }}
 {% set port_ns.port_number = port.port %}
 {% endif %}
 {% endfor %}
+
+{# Determine backend mode for this port: backend-mode-map (per-port) > backend-mode (all ports) > "http" #}
+{% set ns_bm = namespace(mode="http") %}
+{% if svc.metadata.annotations["ethquokkaops.io/backend-mode-map"] is defined %}
+{% for bm_entry in svc.metadata.annotations["ethquokkaops.io/backend-mode-map"].split(',') | map('trim') | list %}
+{% if bm_entry.split(':')[0] | trim == portname %}
+{% set ns_bm.mode = bm_entry.split(':')[1] | trim %}
+{% endif %}
+{% endfor %}
+{% elif svc.metadata.annotations["ethquokkaops.io/backend-mode"] is defined %}
+{% set ns_bm.mode = svc.metadata.annotations["ethquokkaops.io/backend-mode"] %}
+{% endif %}
 
 backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
     balance roundrobin
@@ -540,17 +554,19 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_
     http-request set-header X-Forwarded-Port %[dst_port]
     http-request add-header X-Forwarded-Proto https if { ssl_fc }
 
+    {% if ns_bm.mode != "grpc" %}
     # Enable compression towards the client
     filter compression
     compression algo gzip
     compression type text/css text/html text/javascript application/javascript text/plain text/xml application/json
     compression offload
+    {% endif %}
 
     {% if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined and svc.metadata.annotations["ethquokkaops.io/sticky"] == 'true' %}
     cookie SERVER_USED insert indirect nocache
     {% endif %}
 
-    default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'alpn h2,http/1.1' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}
+    default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'alpn h2,http/1.1' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }} {{ 'proto h2' if ns_bm.mode == "grpc" else '' }}
 
     server metallb_{{ svc.metadata.name }}_{{ portname }} {{ svc.status.loadBalancer.ingress[0].ip}}:{{ port_ns.port_number }}
     {% set k8s_backend_name = cluster.item ~ '_' ~ svc.metadata.namespace ~ '_' ~ svc.metadata.name ~ '_' ~ portname %}
@@ -577,18 +593,20 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     http-request set-header X-Forwarded-Port %[dst_port]
     http-request add-header X-Forwarded-Proto https if { ssl_fc }
 
+    {% if svc.metadata.annotations["ethquokkaops.io/backend-mode"] | default("http") != "grpc" %}
     # Enable compression towards the client
     filter compression
     compression algo gzip
     compression type text/css text/html text/javascript application/javascript text/plain text/xml application/json
     compression offload
+    {% endif %}
 
 
     {% if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined and svc.metadata.annotations["ethquokkaops.io/sticky"] == 'true' %}
     cookie SERVER_USED insert indirect nocache
     {% endif %}
 
-    default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'alpn h2,http/1.1' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}{{ loop.index if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}
+    default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'alpn h2,http/1.1' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}{{ loop.index if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }} {{ 'proto h2' if svc.metadata.annotations["ethquokkaops.io/backend-mode"] | default("http") == "grpc" else '' }}
 
     server metallb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip}}:{{ svc.spec.ports[0].port }}
     {% set k8s_backend_name = cluster.item ~ '_' ~ svc.metadata.namespace ~ '_' ~ svc.metadata.name %}
@@ -678,13 +696,15 @@ backend {{ backend_name }}
     http-request set-header X-Forwarded-Port %[dst_port]
     http-request add-header X-Forwarded-Proto https if { ssl_fc }
 
+    {% if services[0].svc.custom_fields.backend_mode | default("http") != "grpc" %}
     # Enable compression towards the client
     filter compression
     compression algo gzip
     compression type text/css text/html text/javascript application/javascript text/plain text/xml application/json
     compression offload
+    {% endif %}
 
-    default-server check fall 3 rise 2
+    default-server check fall 3 rise 2 {{ 'proto h2' if services[0].svc.custom_fields.backend_mode | default("http") == "grpc" else '' }}
     {% if haproxy_lb_backend_extra_config is defined and domain in haproxy_lb_backend_extra_config %}
     # Custom backend configuration
 {{ haproxy_lb_backend_extra_config[domain] | indent(4, first=True) }}
