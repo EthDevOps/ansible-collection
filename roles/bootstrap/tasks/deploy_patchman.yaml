@@ -7,6 +7,10 @@
   ansible.builtin.get_url:
     url: https://repo.openbytes.ie/openbytes.gpg
     dest: /etc/apt/keyrings/openbytes.gpg
+- name: Remove old openbytes repo configuration
+  file:
+    path: /etc/apt/sources.list.d/repo_openbytes_ie_patchman_debian.list
+    state: absent
 - name: Add openbytes repo
   ansible.builtin.apt_repository:
     repo: "deb [signed-by=/etc/apt/keyrings/openbytes.gpg trusted=yes] https://repo.openbytes.ie/patchman/debian bookworm main"
