@@ -15,6 +15,7 @@ ExecStart=/usr/bin/bao agent -config=/etc/openbao-agent/agent.hcl -config=/etc/o
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65536
+RuntimeDirectory=openbao-agent
 
 # Security hardening
 NoNewPrivileges=yes
