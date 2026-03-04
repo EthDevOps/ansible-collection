@@ -9,7 +9,7 @@
     dest: /etc/apt/keyrings/openbytes.gpg
 - name: Add openbytes repo
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/openbytes.gpg] https://repo.openbytes.ie/patchman/debian bookworm main"
+    repo: "deb [signed-by=/etc/apt/keyrings/openbytes.gpg trusted=yes] https://repo.openbytes.ie/patchman/debian bookworm main"
   notify:
     - Update apt cache
 - name: Install PatchMan client
