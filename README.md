@@ -1,4 +1,4 @@
-# Ansible Collection - ethereum.quokkaops
+# Ansible Collection - ethdevops.infrastructure
 
 General Ansible roles from EF DevOps for infrastructure management, monitoring, and security.
 
@@ -9,7 +9,7 @@ General Ansible roles from EF DevOps for infrastructure management, monitoring, 
 Install a specific version from GitHub releases:
 
 ```bash
-ansible-galaxy collection install https://github.com/ethereum-foundation/ansible-collection/releases/download/v1.2.0/ethereum-quokkaops-1.2.0.tar.gz
+ansible-galaxy collection install https://github.com/EthDevOps/ansible-collection/releases/download/v1.0.0/ethdevops-infrastructure-1.0.0.tar.gz
 ```
 
 ### Using requirements.yml
@@ -19,7 +19,7 @@ Add to your `requirements.yml`:
 ```yaml
 collections:
   # Pin to a specific version
-  - name: https://github.com/ethereum-foundation/ansible-collection/releases/download/v1.2.0/ethereum-quokkaops-1.2.0.tar.gz
+  - name: https://github.com/EthDevOps/ansible-collection/releases/download/v1.0.0/ethdevops-infrastructure-1.0.0.tar.gz
     type: url
 ```
 
@@ -43,12 +43,12 @@ For downstream repositories, you can use version constraints in your `requiremen
 ```yaml
 collections:
   # Stay within major version 1.x (recommended)
-  - name: ethereum.quokkaops
+  - name: ethdevops.infrastructure
     version: ">=1.0.0,<2.0.0"
-    
-  # Or stay within minor version 1.2.x
-  - name: ethereum.quokkaops
-    version: ">=1.2.0,<1.3.0"
+
+  # Or stay within minor version 1.0.x
+  - name: ethdevops.infrastructure
+    version: ">=1.0.0,<1.1.0"
 ```
 
 ### Automated Updates
@@ -61,18 +61,20 @@ ansible-galaxy collection install -r requirements.yml --upgrade
 
 ## Available Roles
 
-- **acme-certificates**: ACME certificate management
+- **acme_certificates**: ACME certificate management
 - **bootstrap**: System bootstrapping and basic configuration
 - **discourse**: Discourse forum deployment
 - **docker_debian**: Docker installation on Debian systems
-- **extra-user**: Additional user management
-- **grafana-agent**: Grafana agent deployment and configuration
-- **haproxy-lb**: HAProxy load balancer configuration
+- **extra_user**: Additional user management
+- **grafana_agent**: Grafana agent deployment and configuration
+- **grafana_agent_remove**: Grafana agent removal/cleanup
+- **haproxy_lb**: HAProxy load balancer configuration
 - **jvb**: Jitsi Video Bridge setup
 - **k3s**: Lightweight Kubernetes distribution
-- **macmini-server**: Mac Mini server configuration
+- **macmini_server**: Mac Mini server configuration
+- **openbao_agent**: OpenBao agent setup
 - **opnsense_nat**: OPNsense NAT configuration
-- **teleport-agent**: Teleport agent setup
+- **teleport_agent**: Teleport agent setup
 - **vector**: Vector log aggregation
 - **vrrp**: VRRP/keepalived configuration
 
