@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: wazuh_agent
+  author: EthDevOps
+  description: Install and configure Wazuh agent for security monitoring
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - wazuh
+    - security
+    - monitoring
+    - ids
+dependencies: []
