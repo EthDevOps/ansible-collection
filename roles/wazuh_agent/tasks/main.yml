@@ -1,0 +1,47 @@
+---
+- name: Install prerequisite packages
+  ansible.builtin.apt:
+    name:
+      - gnupg
+      - apt-transport-https
+    state: present
+    update_cache: true
+- name: Download Wazuh GPG key
+  ansible.builtin.get_url:
+    url: https://packages.wazuh.com/key/GPG-KEY-WAZUH
+    dest: /tmp/wazuh-gpg-key
+    mode: '0644'
+- name: Import Wazuh GPG key into keyring
+  ansible.builtin.command:
+    cmd: >
+      gpg --no-default-keyring
+      --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg
+      --import /tmp/wazuh-gpg-key
+    creates: /usr/share/keyrings/wazuh.gpg
+- name: Set permissions on Wazuh keyring
+  ansible.builtin.file:
+    path: /usr/share/keyrings/wazuh.gpg
+    mode: '0644'
+- name: Clean up downloaded GPG key
+  ansible.builtin.file:
+    path: /tmp/wazuh-gpg-key
+    state: absent
+- name: Add Wazuh apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main"
+    filename: wazuh
+    state: present
+- name: Install Wazuh agent
+  ansible.builtin.apt:
+    name: wazuh-agent
+    state: present
+    update_cache: true
+  environment:
+    WAZUH_MANAGER: "{{ wazuh_agent_manager_host }}"
+  notify: Restart wazuh-agent
+- name: Enable and start Wazuh agent
+  ansible.builtin.systemd:
+    name: wazuh-agent
+    enabled: true
+    state: started
+    daemon_reload: true
