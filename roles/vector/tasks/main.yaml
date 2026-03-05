@@ -48,20 +48,17 @@
     groups: docker
     append: true
   when: vector_docker_group_check.rc == 0
-
 - name: Create config file (direct)
   when: not vector_use_openbao
   ansible.builtin.template:
     src: vector.yaml.j2
     dest: /etc/vector/vector.yaml
   notify: Restart Vector
-
 - name: Ensure ACL package is installed
   when: vector_use_openbao
   ansible.builtin.package:
     name: acl
     state: present
-
 - name: Ensure vector config file exists for ACL
   when: vector_use_openbao
   ansible.builtin.file:
@@ -72,7 +69,6 @@
     mode: '0644'
     modification_time: preserve
     access_time: preserve
-
 - name: Set ACL for openbao on vector dir
   when: vector_use_openbao
   ansible.posix.acl:
@@ -81,7 +77,6 @@
     etype: user
     permissions: rwx
     state: present
-
 - name: Set ACL for openbao on vector config
   when: vector_use_openbao
   ansible.posix.acl:
@@ -90,13 +85,11 @@
     etype: user
     permissions: rw
     state: present
-
 - name: Create config file (openbao)
   when: vector_use_openbao
   ansible.builtin.template:
     src: vector.yaml.tpl
     dest: /etc/openbao-agent/templates.d/vector.yaml.tpl
-
 - name: Copy OpenBao template config file
   when: vector_use_openbao
   ansible.builtin.copy:

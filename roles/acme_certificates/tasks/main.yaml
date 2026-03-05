@@ -6,35 +6,29 @@
     pkg:
       - certbot
       - python3-certbot-dns-cloudflare
-
 - name: Install snapd
   ansible.builtin.apt:
     pkg:
       - snapd
- 
 - name: Enable and start snapd socket
   ansible.builtin.systemd:
     name: snapd.socket
     enabled: true
     state: started
-
 - name: Install snap core
   community.general.snap:
     name: core
     state: present
-
 - name: Install certbot via snap
   community.general.snap:
     name: certbot
     classic: true
     state: present
-
 - name: Create certbot symlink
   ansible.builtin.file:
     src: /snap/bin/certbot
     dest: /usr/bin/certbot
     state: link
-
 - name: Download acme-dns-hook
   ansible.builtin.get_url:
     url: >-
@@ -67,9 +61,11 @@
   when: item.stat.exists
   ansible.builtin.shell:
     cmd: |
+      set -o pipefail
       start=$(openssl x509 -startdate -noout -in /etc/letsencrypt/live/{{ item.item.domain }}/cert.pem | cut -d= -f2)
       end=$(openssl x509 -enddate -noout -in /etc/letsencrypt/live/{{ item.item.domain }}/cert.pem | cut -d= -f2)
       echo $(( ($(date -d "$end" +%s) - $(date -d "$start" +%s)) / 86400 ))
+    executable: /bin/bash
   loop: "{{ acme_certificates_cert_status.results }}"
   loop_control:
     label: "{{ item.item.domain }}"

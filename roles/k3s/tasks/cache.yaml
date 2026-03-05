@@ -1,6 +1,6 @@
 ---
 - name: Create cache config directory
-  file:
+  ansible.builtin.file:
     state: directory
     path: /etc/rancher/k3s
     mode: '0755'
