@@ -22,6 +22,10 @@ auto_auth {
   }
 }
 
+template_config {
+  static_secret_render_interval = "1m"
+}
+
 {% if openbao_agent_cache_enabled %}
 cache {
   use_auto_auth_token = true
