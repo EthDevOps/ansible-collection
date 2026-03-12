@@ -33,7 +33,7 @@
     state: present
 - name: Install Wazuh agent
   ansible.builtin.apt:
-    name: wazuh-agent
+    name: "wazuh-agent={{ wazuh_agent_version }}"
     state: present
     update_cache: true
   environment:
