@@ -6,3 +6,11 @@
 - name: Update apt cache
   ansible.builtin.apt:
     update_cache: true
+- name: Apply sysctl disable-ipv6-privacy
+  ansible.builtin.command:
+    cmd: sysctl -p /etc/sysctl.d/70-disable-ipv6-privacy.conf
+  notify: Restart systemd-networkd
+- name: Restart systemd-networkd
+  ansible.builtin.service:
+    name: systemd-networkd
+    state: restarted

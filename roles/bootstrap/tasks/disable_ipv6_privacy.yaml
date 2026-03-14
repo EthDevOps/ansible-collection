@@ -1,0 +1,8 @@
+---
+- name: Disable IPv6 privacy extensions
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/70-disable-ipv6-privacy.conf
+    content: |
+      net.ipv6.conf.all.use_tempaddr=0
+      net.ipv6.conf.default.use_tempaddr=0
+  notify: Apply sysctl disable-ipv6-privacy

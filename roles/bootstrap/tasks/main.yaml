@@ -10,6 +10,8 @@
   ansible.builtin.import_tasks: user.yaml
 - name: Setup SSHd
   ansible.builtin.import_tasks: ssh.yaml
+- name: Disable IPv6 privacy extensions
+  ansible.builtin.import_tasks: disable_ipv6_privacy.yaml
 - name: Setup storage optimization
   ansible.builtin.import_tasks: storage_optimization.yaml
   when: bootstrap_storage_optimized is defined and bootstrap_storage_optimized | bool
