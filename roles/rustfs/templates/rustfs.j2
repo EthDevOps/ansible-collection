@@ -1,0 +1,24 @@
+# RustFS configuration file
+# This file is managed by Ansible - do not edit manually
+
+# RustFS credentials
+RUSTFS_ACCESS_KEY={{ rustfs_access_key }}
+RUSTFS_SECRET_KEY={{ rustfs_secret_key }}
+
+# RustFS server configuration
+RUSTFS_VOLUMES="{{ rustfs_data_dir }}"
+RUSTFS_ADDRESS=":{{ rustfs_port }}"
+
+# Console configuration
+RUSTFS_CONSOLE_ENABLE=true
+
+# Logging
+# rustfs_scanner=off suppresses scanner warnings for objects with separate part files
+# (upstream bug in alpha.83, RUSTFS_ENABLE_SCANNER not yet supported)
+RUST_LOG=warn,rustfs_scanner=off
+RUSTFS_OBS_LOG_DIRECTORY="/var/log/rustfs/"
+
+# Additional environment variables
+{% for key, value in rustfs_extra_env_vars.items() %}
+{{ key }}={{ value }}
+{% endfor %}

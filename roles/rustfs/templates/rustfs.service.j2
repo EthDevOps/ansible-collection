@@ -1,0 +1,31 @@
+[Unit]
+Description=RustFS Object Storage Server
+Documentation=https://docs.rustfs.com
+Wants=network-online.target
+After=network-online.target
+AssertFileIsExecutable=/opt/rustfs/bin/rustfs
+
+[Service]
+WorkingDirectory=/opt/rustfs/
+
+User=rustfs
+Group=rustfs
+
+EnvironmentFile=-/etc/rustfs/rustfs
+ExecStart=/opt/rustfs/bin/rustfs $RUSTFS_VOLUMES
+
+# Let systemd restart this service always
+Restart=always
+
+# Specifies the maximum file descriptor number that can be opened by this process
+LimitNOFILE=65536
+
+# Specifies the maximum number of threads this process can create
+TasksMax=infinity
+
+# Disable timeout logic and wait until process is stopped
+TimeoutStopSec=infinity
+SendSIGKILL=no
+
+[Install]
+WantedBy=multi-user.target
