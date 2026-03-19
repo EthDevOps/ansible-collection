@@ -29,7 +29,7 @@
   register: teleport_agent_install
   notify: Reload teleport
   ansible.builtin.apt:
-    state: present
+    state: latest
     name: teleport
 - name: Generate Teleport join token on control node
   ansible.builtin.command: tctl tokens add --type=node,app,db,windowsdesktop --format=text
