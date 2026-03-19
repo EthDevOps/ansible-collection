@@ -9,13 +9,19 @@
     dest: /etc/apt/keyrings/teleport.asc
 - name: Add Teleport repo
   register: teleport_agent_add_repo
-  vars:
-    teleport_agent_repo_url: >-
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/teleport.list
+    content: >-
       deb [signed-by=/etc/apt/keyrings/teleport.asc]
       https://apt.releases.teleport.dev/{{ ansible_distribution | lower }}
       {{ ansible_distribution_release }} {{ teleport_version }}
-  ansible.builtin.apt_repository:
-    repo: "{{ teleport_agent_repo_url }}"
+- name: Remove old auto-generated teleport repo files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/apt_releases_teleport_dev_debian.list
+    - /etc/apt/sources.list.d/apt_releases_teleport_dev_ubuntu.list
 - name: Run apt-get update
   ansible.builtin.apt:
     update_cache: true
