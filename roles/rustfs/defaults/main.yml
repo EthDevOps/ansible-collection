@@ -1,6 +1,6 @@
 ---
 # RustFS version and download URLs
-rustfs_version: "1.0.0-alpha.83"
+rustfs_version: "1.0.0-alpha.89"
 rustfs_server_url: "https://github.com/rustfs/rustfs/releases/download/{{ rustfs_version }}/rustfs-linux-x86_64-musl-v{{ rustfs_version }}.zip"
 rustfs_client_url: "https://github.com/rustfs/cli/releases/download/v0.1.3/rustfs-cli-linux-amd64-v0.1.3.tar.gz"
 
