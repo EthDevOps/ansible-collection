@@ -8,7 +8,7 @@ Type=notify
 Environment="K3S_TOKEN={{ k3s_token }}"
 ExecStartPre=-/sbin/modprobe br_netfilter
 ExecStartPre=-/sbin/modprobe overlay
-ExecStart=/usr/local/bin/k3s server --disable=servicelb --disable=traefik --tls-san {{ k3s_server_lb_ip }} --cluster-init --flannel-backend={{ k3s_network_backend }} --data-dir {{ k3s_server_location }} {{ k3s_server_extra_args | default("") }} {{ k3s_server_join | default("") }}
+ExecStart=/usr/local/bin/k3s server --disable=servicelb --disable=traefik --tls-san {{ k3s_server_lb_ip }} --cluster-init --flannel-backend={{ k3s_network_backend }} --data-dir {{ k3s_server_location }} {% if k3s_audit_log_enabled | default(false) %}--audit-log-path {{ k3s_audit_log_path }} --audit-log-maxage {{ k3s_audit_log_maxage }} --audit-log-maxbackup {{ k3s_audit_log_maxbackup }} --audit-log-maxsize {{ k3s_audit_log_maxsize }} {% endif %}{{ k3s_server_extra_args | default("") }} {{ k3s_server_join | default("") }}
 
 KillMode=process
 Delegate=yes

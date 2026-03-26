@@ -27,3 +27,9 @@ k3s_etcd_snapshot_folder: snapshots
 k3s_etcd_snapshot_insecure: false
 k3s_etcd_snapshot_timeout: 5m0s
 k3s_docker_cache: ""
+# Audit logging configuration
+k3s_audit_log_enabled: false
+k3s_audit_log_path: /var/log/k3s/audit.log
+k3s_audit_log_maxage: 30
+k3s_audit_log_maxbackup: 10
+k3s_audit_log_maxsize: 100

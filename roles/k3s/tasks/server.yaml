@@ -40,6 +40,14 @@
     group: root
     mode: "0644"
   when: k3s_etcd_enabled and k3s_etcd_snapshot_enabled
+- name: Create audit log directory
+  ansible.builtin.file:
+    path: "{{ k3s_audit_log_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+  when: k3s_audit_log_enabled | default(false)
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
