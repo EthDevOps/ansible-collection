@@ -31,7 +31,7 @@
     owner: root
     group: root
     mode: '0755'
-  when: k3s_etcd_enabled and k3s_etcd_snapshot_enabled
+  when: (k3s_etcd_enabled and k3s_etcd_snapshot_enabled) or k3s_hardening_enabled
 - name: Create backup file for etcd
   ansible.builtin.template:
     src: "k3s-etcd-backup.yaml.j2"
@@ -40,14 +40,38 @@
     group: root
     mode: "0644"
   when: k3s_etcd_enabled and k3s_etcd_snapshot_enabled
+- name: Deploy CIS hardening config
+  ansible.builtin.template:
+    src: "k3s-hardening.yaml.j2"
+    dest: "/etc/rancher/k3s/config.yaml.d/hardening.yaml"
+    owner: root
+    group: root
+    mode: "0600"
+  when: k3s_hardening_enabled
+- name: Deploy audit policy file
+  ansible.builtin.copy:
+    src: "audit-policy.yaml"
+    dest: "{{ k3s_server_location }}/server/audit.yaml"
+    owner: root
+    group: root
+    mode: "0600"
+  when: k3s_hardening_enabled
+- name: Deploy Pod Security Admission config
+  ansible.builtin.copy:
+    src: "psa.yaml"
+    dest: "{{ k3s_server_location }}/server/psa.yaml"
+    owner: root
+    group: root
+    mode: "0600"
+  when: k3s_hardening_enabled
 - name: Create audit log directory
   ansible.builtin.file:
-    path: "{{ k3s_audit_log_path | dirname }}"
+    path: "{{ k3s_server_location }}/server/logs"
     state: directory
     owner: root
     group: root
-    mode: '0750'
-  when: k3s_audit_log_enabled | default(false)
+    mode: '0700'
+  when: k3s_hardening_enabled
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true

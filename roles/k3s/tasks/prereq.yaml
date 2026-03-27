@@ -37,6 +37,19 @@
   loop:
     - net.bridge.bridge-nf-call-iptables
     - net.bridge.bridge-nf-call-ip6tables
+- name: Configure CIS kubelet kernel parameters
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/90-kubelet.conf
+    state: present
+    reload: true
+  loop:
+    - { name: vm.panic_on_oom, value: "0" }
+    - { name: vm.overcommit_memory, value: "1" }
+    - { name: kernel.panic, value: "10" }
+    - { name: kernel.panic_on_oops, value: "1" }
+  when: k3s_hardening_enabled
 - name: Add /usr/local/bin to sudo secure_path
   ansible.builtin.lineinfile:
     line: 'Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin'

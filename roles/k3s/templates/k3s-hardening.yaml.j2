@@ -1,0 +1,12 @@
+secrets-encryption: true
+kube-apiserver-arg:
+  - "enable-admission-plugins=NodeRestriction,EventRateLimit"
+  - "admission-control-config-file={{ k3s_server_location }}/server/psa.yaml"
+  - "audit-log-path={{ k3s_server_location }}/server/logs/audit.log"
+  - "audit-policy-file={{ k3s_server_location }}/server/audit.yaml"
+  - "audit-log-maxage={{ k3s_audit_log_maxage }}"
+  - "audit-log-maxbackup={{ k3s_audit_log_maxbackup }}"
+  - "audit-log-maxsize={{ k3s_audit_log_maxsize }}"
+  - "service-account-extend-token-expiration=false"
+kube-controller-manager-arg:
+  - "terminated-pod-gc-threshold=100"
