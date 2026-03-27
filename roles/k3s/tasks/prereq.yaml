@@ -15,7 +15,7 @@
     value: "1"
     state: present
     reload: true
-  when: ansible_all_ipv6_addresses
+  when: ansible_all_ipv6_addresses | length > 0
 - name: Add br_netfilter to /etc/modules-load.d/
   ansible.builtin.copy:
     content: "br_netfilter"
