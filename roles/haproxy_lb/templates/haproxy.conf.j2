@@ -276,7 +276,8 @@ frontend http
     {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
     {% set paths = svc.metadata.annotations["ethquokkaops.io/path"].split(',') | map('trim') | list %}
     {% for path in paths %}
-    acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ path }}
+    {% set route_path = path.split(':')[0] | trim %}
+    acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ route_path }}
     {% endfor %}
     {% endif %}
 
@@ -554,6 +555,16 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_
     http-request set-header X-Forwarded-Port %[dst_port]
     http-request add-header X-Forwarded-Proto https if { ssl_fc }
 
+    {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
+    {% for path in svc.metadata.annotations["ethquokkaops.io/path"].split(',') | map('trim') | list %}
+    {% if ':' in path %}
+    {% set public_path = path.split(':')[0] | trim %}
+    {% set backend_path = path.split(':')[1] | trim %}
+    http-request replace-path ^{{ public_path }}(.*) {{ backend_path }}\1
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+
     {% if ns_bm.mode != "grpc" %}
     # Enable compression towards the client
     filter compression
@@ -592,6 +603,16 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
 
     http-request set-header X-Forwarded-Port %[dst_port]
     http-request add-header X-Forwarded-Proto https if { ssl_fc }
+
+    {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
+    {% for path in svc.metadata.annotations["ethquokkaops.io/path"].split(',') | map('trim') | list %}
+    {% if ':' in path %}
+    {% set public_path = path.split(':')[0] | trim %}
+    {% set backend_path = path.split(':')[1] | trim %}
+    http-request replace-path ^{{ public_path }}(.*) {{ backend_path }}\1
+    {% endif %}
+    {% endfor %}
+    {% endif %}
 
     {% if svc.metadata.annotations["ethquokkaops.io/backend-mode"] | default("http") != "grpc" %}
     # Enable compression towards the client
