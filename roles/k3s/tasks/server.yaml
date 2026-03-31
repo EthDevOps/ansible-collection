@@ -80,6 +80,16 @@
     name: k3s-server
     state: restarted
     enabled: true
+  throttle: 1
+  when: k3s_service.changed
+- name: Wait for k3s server to be ready after restart # noqa: no-handler
+  ansible.builtin.command: k3s kubectl get nodes
+  register: k3s_ready
+  until: k3s_ready.rc == 0
+  retries: 30
+  delay: 10
+  changed_when: false
+  throttle: 1
   when: k3s_service.changed
 - name: Copy config file to user home directory
   ansible.builtin.copy:
