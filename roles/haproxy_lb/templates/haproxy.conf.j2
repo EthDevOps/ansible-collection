@@ -526,6 +526,7 @@ backend {{ site }}
 {% for port in svc.spec.ports %}
 {% if port.name == portname %}
 {% set port_ns.port_number = port.port %}
+{% set port_ns.node_port = port.nodePort %}
 {% endif %}
 {% endfor %}
 
@@ -579,7 +580,13 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_
 
     default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'alpn h2,http/1.1' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }} {{ 'proto h2' if ns_bm.mode == "grpc" else '' }}
 
+{% if haproxy_lb_k8s_cluster_nodes[cluster.item] is defined and haproxy_lb_k8s_cluster_nodes[cluster.item] | length > 0 %}
+{% for node in haproxy_lb_k8s_cluster_nodes[cluster.item] %}
+    server {{ node }}_{{ svc.metadata.name }}_{{ portname }} {{ lb_hostvars[node]["primary_ip4"] }}:{{ port_ns.node_port }}
+{% endfor %}
+{% else %}
     server metallb_{{ svc.metadata.name }}_{{ portname }} {{ svc.status.loadBalancer.ingress[0].ip}}:{{ port_ns.port_number }}
+{% endif %}
     {% set k8s_backend_name = cluster.item ~ '_' ~ svc.metadata.namespace ~ '_' ~ svc.metadata.name ~ '_' ~ portname %}
     {% if haproxy_lb_backend_extra_config is defined and k8s_backend_name in haproxy_lb_backend_extra_config %}
     # Custom backend configuration
@@ -629,7 +636,13 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
 
     default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if svc.metadata.annotations["ethquokkaops.io/ssl-backend"] is defined else '' }} {{ 'alpn h2,http/1.1' if svc.metadata.annotations["ethquokkaops.io/http2-backend"] is defined else '' }} {{ 'cookie s' if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }}{{ loop.index if svc.metadata.annotations["ethquokkaops.io/sticky"] is defined }} {{ 'proto h2' if svc.metadata.annotations["ethquokkaops.io/backend-mode"] | default("http") == "grpc" else '' }}
 
+{% if haproxy_lb_k8s_cluster_nodes[cluster.item] is defined and haproxy_lb_k8s_cluster_nodes[cluster.item] | length > 0 %}
+{% for node in haproxy_lb_k8s_cluster_nodes[cluster.item] %}
+    server {{ node }}_{{ svc.metadata.name }} {{ lb_hostvars[node]["primary_ip4"] }}:{{ svc.spec.ports[0].nodePort }}
+{% endfor %}
+{% else %}
     server metallb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip}}:{{ svc.spec.ports[0].port }}
+{% endif %}
     {% set k8s_backend_name = cluster.item ~ '_' ~ svc.metadata.namespace ~ '_' ~ svc.metadata.name %}
     {% if haproxy_lb_backend_extra_config is defined and k8s_backend_name in haproxy_lb_backend_extra_config %}
     # Custom backend configuration
@@ -645,7 +658,21 @@ backend tcp_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name
     balance roundrobin
 
     default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('30') }} fall 3 rise 2
+{% if haproxy_lb_k8s_cluster_nodes[cluster.item] is defined and haproxy_lb_k8s_cluster_nodes[cluster.item] | length > 0 %}
+{% set tcp_ns = namespace(nodeport=svc.spec.ports[0].nodePort) %}
+{% if svc.metadata.annotations["ethquokkaops.io/service-port"] is defined %}
+{% for port in svc.spec.ports %}
+{% if port.port | string == svc.metadata.annotations["ethquokkaops.io/service-port"] | string %}
+{% set tcp_ns.nodeport = port.nodePort %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% for node in haproxy_lb_k8s_cluster_nodes[cluster.item] %}
+    server {{ node }}_{{ svc.metadata.name }} {{ lb_hostvars[node]["primary_ip4"] }}:{{ tcp_ns.nodeport }}
+{% endfor %}
+{% else %}
     server metallb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip}}:{{ svc.metadata.annotations["ethquokkaops.io/service-port"] | default(svc.spec.ports[0].port) }}
+{% endif %}
     {% set k8s_tcp_backend_name = 'tcp_' ~ cluster.item ~ '_' ~ svc.metadata.namespace ~ '_' ~ svc.metadata.name %}
     {% if haproxy_lb_backend_extra_config is defined and k8s_tcp_backend_name in haproxy_lb_backend_extra_config %}
     # Custom backend configuration

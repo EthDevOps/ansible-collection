@@ -11,6 +11,7 @@ haproxy_lb_sites: []
 haproxy_lb_tunnels: []
 haproxy_lb_redirects: []
 haproxy_lb_k8s_services: []
+haproxy_lb_k8s_cluster_nodes: {}
 # Custom backend configuration snippets for HAProxy backends
 # Keyed by backend name, value is raw HAProxy config to inject
 # Supported backend types and their keys:
