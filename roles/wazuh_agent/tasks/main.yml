@@ -39,6 +39,12 @@
   environment:
     WAZUH_MANAGER: "{{ wazuh_agent_manager_host }}"
   notify: Restart wazuh-agent
+- name: Configure Wazuh manager address
+  community.general.xml:
+    path: /var/ossec/etc/ossec.conf
+    xpath: /ossec_config/client/server/address
+    value: "{{ wazuh_agent_manager_host }}"
+  notify: Restart wazuh-agent
 - name: Enable and start Wazuh agent
   ansible.builtin.systemd:
     name: wazuh-agent
