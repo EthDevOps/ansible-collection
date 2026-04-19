@@ -15,6 +15,9 @@ Default variables are defined in [defaults/main.yaml](defaults/main.yaml)
 |----------|-------------|---------|
 | `teleport_agent_apps` | List of applications to expose | `[]` |
 | `teleport_agent_desktops` | List of Windows desktops | `[]` |
+| `teleport_agent_enhanced_recording_enabled` | Enable SSH enhanced session recording (BPF). Requires a recent kernel; scope per-group rather than globally. | `false` |
+| `teleport_agent_enhanced_recording_command_buffer_size` | BPF command event buffer size, in pages | `8` |
+| `teleport_agent_enhanced_recording_network_buffer_size` | BPF network event buffer size, in pages | `8` |
 
 ## Dependencies
 
