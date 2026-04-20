@@ -1,3 +1,7 @@
 ---
 teleport_agent_apps: []
 teleport_agent_desktops: []
+# Enhanced session recording (BPF). Requires a recent kernel; scope per-group rather than globally.
+teleport_agent_enhanced_recording_enabled: false
+teleport_agent_enhanced_recording_command_buffer_size: 8
+teleport_agent_enhanced_recording_network_buffer_size: 8

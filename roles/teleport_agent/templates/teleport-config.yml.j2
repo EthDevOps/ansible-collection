@@ -27,6 +27,12 @@ ssh_service:
   - name: hostname
     command: [hostname]
     period: 1m0s
+{% if teleport_agent_enhanced_recording_enabled %}
+  enhanced_recording:
+    enabled: true
+    command_buffer_size: {{ teleport_agent_enhanced_recording_command_buffer_size }}
+    network_buffer_size: {{ teleport_agent_enhanced_recording_network_buffer_size }}
+{% endif %}
 proxy_service:
   enabled: "no"
   https_keypairs: []
