@@ -1,23 +1,34 @@
 ---
-- name: Install gpg
+- name: Install prerequisites
   ansible.builtin.apt:
     update_cache: true
     pkg:
       - gpg
-- name: Add haproxy apt key
-  ansible.builtin.apt_key:
-    url: https://haproxy.debian.net/bernat.debian.org.gpg
-    state: present
-- name: Add haproxy apt repo
+      - wget
+- name: Remove legacy haproxy.debian.net repo
   ansible.builtin.apt_repository:
     repo: deb http://haproxy.debian.net bookworm-backports-3.1 main
+    state: absent
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /usr/share/keyrings
+    state: directory
+    mode: "0755"
+- name: Add HAProxy Technologies GPG key
+  ansible.builtin.get_url:
+    url: https://pks.haproxy.com/linux/community/RPM-GPG-KEY-HAProxy
+    dest: /usr/share/keyrings/HAPROXY-key-community.asc
+    mode: "0644"
+- name: Add HAProxy performance (AWS-LC) apt repo
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/HAPROXY-key-community.asc] https://www.haproxy.com/download/haproxy/performance/debian/ha33 trixie main"
     state: present
-- name: Install haproxy
+    filename: haproxy
+- name: Install haproxy with AWS-LC
   ansible.builtin.apt:
     update_cache: true
-    default_release: bookworm-backports-3.1
     pkg:
-      - "haproxy=3.1.*"
+      - haproxy-awslc
 - name: Make sure certificate dir exists
   ansible.builtin.file:
     path: /etc/certificates
