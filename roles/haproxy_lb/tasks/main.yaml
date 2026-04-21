@@ -53,12 +53,6 @@
     src: files/{{ item }}.html
     dest: /etc/haproxy/errors/{{ item }}.http
     mode: "0644"
-- name: Download diffie-hellman parameters from mozilla
-  ansible.builtin.get_url:
-    url: https://ssl-config.mozilla.org/ffdhe2048.txt
-    dest: /var/lib/dhparam
-    mode: '0644'
-    force: true
 - name: Set lb_hostvars equal to hostvars if not already set
   check_mode: false
   ansible.builtin.set_fact:
