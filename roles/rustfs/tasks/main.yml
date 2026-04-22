@@ -4,7 +4,6 @@
     name:
       - unzip
     state: present
-
 - name: Create rustfs user
   ansible.builtin.user:
     name: rustfs
@@ -12,7 +11,6 @@
     shell: /bin/false
     home: /opt/rustfs
     create_home: true
-
 - name: Create data directory
   ansible.builtin.file:
     path: "{{ rustfs_data_dir }}"
@@ -20,7 +18,6 @@
     owner: rustfs
     group: rustfs
     mode: '0755'
-
 - name: Create rustfs log directory
   ansible.builtin.file:
     path: /var/log/rustfs
@@ -28,7 +25,6 @@
     owner: rustfs
     group: rustfs
     mode: '0755'
-
 - name: Create rustfs configuration directory
   ansible.builtin.file:
     path: /etc/rustfs
@@ -36,7 +32,6 @@
     owner: rustfs
     group: rustfs
     mode: '0755'
-
 - name: Create rustfs binary directory
   ansible.builtin.file:
     path: /opt/rustfs/bin
@@ -44,14 +39,12 @@
     owner: rustfs
     group: rustfs
     mode: '0755'
-
 - name: Download RustFS server archive
   ansible.builtin.get_url:
     url: "{{ rustfs_server_url }}"
     dest: /tmp/rustfs-server.zip
     mode: '0644'
   notify: Restart rustfs
-
 - name: Extract RustFS server binary
   ansible.builtin.unarchive:
     src: /tmp/rustfs-server.zip
@@ -60,20 +53,17 @@
     owner: rustfs
     group: rustfs
     mode: '0755'
-
 - name: Ensure rustfs binary is executable
   ansible.builtin.file:
     path: /opt/rustfs/bin/rustfs
     owner: rustfs
     group: rustfs
     mode: '0755'
-
 - name: Download RustFS client archive
   ansible.builtin.get_url:
     url: "{{ rustfs_client_url }}"
     dest: /tmp/rustfs-cli.tar.gz
     mode: '0644'
-
 - name: Extract RustFS client binary
   ansible.builtin.unarchive:
     src: /tmp/rustfs-cli.tar.gz
@@ -82,7 +72,6 @@
     owner: rustfs
     group: rustfs
     mode: '0755'
-
 - name: Create symlinks for rustfs binaries
   ansible.builtin.file:
     src: "/opt/rustfs/bin/{{ item }}"
@@ -91,7 +80,6 @@
   loop:
     - rustfs
     - rc
-
 - name: Generate RustFS configuration
   ansible.builtin.template:
     src: rustfs.j2
@@ -100,7 +88,6 @@
     group: rustfs
     mode: '0640'
   notify: Restart rustfs
-
 - name: Create systemd service file
   ansible.builtin.template:
     src: rustfs.service.j2
@@ -111,21 +98,18 @@
   notify:
     - Reload systemd
     - Restart rustfs
-
 - name: Enable and start RustFS service
   ansible.builtin.systemd:
     name: rustfs
     enabled: true
     state: started
     daemon_reload: true
-
 - name: Wait for RustFS API to be ready
   ansible.builtin.wait_for:
     port: "{{ rustfs_port }}"
     host: "{{ ansible_facts['default_ipv4']['address'] }}"
     delay: 10
     timeout: 60
-
 - name: Wait for RustFS Console to be ready
   ansible.builtin.wait_for:
     port: "{{ rustfs_console_port }}"

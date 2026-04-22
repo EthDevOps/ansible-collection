@@ -1,3 +1,4 @@
 ---
 wazuh_agent_manager_host: "wazuh.ethquokkaops.io"
 wazuh_agent_version: "4.14.4-1"
+wazuh_agent_registration_password: ""
