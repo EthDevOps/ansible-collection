@@ -46,6 +46,15 @@
     line: '\1<address>{{ wazuh_agent_manager_host }}</address>'
     backrefs: true
   notify: Restart wazuh-agent
+- name: Write enrollment password
+  ansible.builtin.copy:
+    content: "{{ wazuh_agent_registration_password }}"
+    dest: /var/ossec/etc/authd.pass
+    owner: root
+    group: wazuh
+    mode: '0640'
+  when: wazuh_agent_registration_password | length > 0
+  notify: Restart wazuh-agent
 - name: Enable and start Wazuh agent
   ansible.builtin.systemd:
     name: wazuh-agent
