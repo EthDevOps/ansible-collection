@@ -39,6 +39,12 @@
   environment:
     WAZUH_MANAGER: "{{ wazuh_agent_manager_host }}"
   notify: Restart wazuh-agent
+- name: Install lxml Python library
+  ansible.builtin.apt:
+    name: python3-lxml
+    state: present
+    update_cache: true
+
 - name: Configure Wazuh manager address
   community.general.xml:
     path: /var/ossec/etc/ossec.conf
