@@ -29,6 +29,12 @@
     update_cache: true
     pkg:
       - haproxy-awslc
+- name: Set cap_net_bind_service for QUIC UDP binding
+  community.general.capabilities:
+    path: /usr/sbin/haproxy
+    capability: cap_net_bind_service=+ep
+    state: present
+  when: haproxy_lb_quic_enabled | default(false)
 - name: Make sure certificate dir exists
   ansible.builtin.file:
     path: /etc/certificates
