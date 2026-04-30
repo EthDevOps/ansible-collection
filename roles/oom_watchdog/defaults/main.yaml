@@ -1,0 +1,9 @@
+---
+oom_watchdog_device: /dev/watchdog
+oom_watchdog_timeout: 60
+oom_watchdog_interval: 30
+oom_watchdog_min_memory: 1
+oom_watchdog_max_load_1: 24
+oom_watchdog_realtime: true
+oom_watchdog_priority: 1
+oom_watchdog_nmi_enabled: true

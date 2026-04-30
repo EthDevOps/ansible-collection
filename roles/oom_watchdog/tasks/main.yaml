@@ -1,0 +1,44 @@
+---
+- name: Install watchdog package
+  ansible.builtin.apt:
+    name: watchdog
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Persist softdog kernel module load on boot
+  ansible.builtin.copy:
+    content: "softdog\n"
+    dest: /etc/modules-load.d/softdog.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Load softdog kernel module
+  community.general.modprobe:
+    name: softdog
+    state: present
+
+- name: Enable NMI watchdog
+  ansible.posix.sysctl:
+    name: kernel.nmi_watchdog
+    value: "1"
+    sysctl_file: /etc/sysctl.d/60-oom-watchdog.conf
+    state: present
+    reload: true
+  when: oom_watchdog_nmi_enabled
+
+- name: Deploy watchdog configuration
+  ansible.builtin.template:
+    src: watchdog.conf.j2
+    dest: /etc/watchdog.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart watchdog
+
+- name: Enable and start watchdog service
+  ansible.builtin.systemd:
+    name: watchdog
+    state: started
+    enabled: true

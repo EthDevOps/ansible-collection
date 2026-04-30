@@ -1,0 +1,5 @@
+---
+- name: Restart watchdog
+  ansible.builtin.systemd:
+    name: watchdog
+    state: restarted
