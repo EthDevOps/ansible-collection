@@ -29,7 +29,7 @@ This role was developed for bare-metal GPU hosts running heavy workloads (`ere-s
 | `oom_watchdog_timeout` | `60` | Seconds the kernel watchdog waits without a ping before forcing a reboot. |
 | `oom_watchdog_interval` | `30` | Seconds between liveness checks performed by the watchdog daemon. Must be less than `oom_watchdog_timeout`. |
 | `oom_watchdog_min_memory` | `1` | Reboot when fewer than this many free pages are available — catches runaway-memory lockups before the OOM killer can act. |
-| `oom_watchdog_max_load_1` | `24` | Reboot when the 1-minute load average exceeds this value. Tune up on high-core-count GPU hosts. |
+| `oom_watchdog_max_load_1_per_core` | `4` | Per-core 1-minute load threshold. The rendered `max-load-1` is this value multiplied by `ansible_processor_vcpus`, so the threshold scales automatically with host size (e.g. `4` × 32 vCPUs ⇒ `max-load-1 = 128`). |
 | `oom_watchdog_realtime` | `true` | Run the daemon with realtime scheduling so it keeps pinging the watchdog under heavy load. |
 | `oom_watchdog_priority` | `1` | Realtime priority used when `oom_watchdog_realtime` is enabled. |
 | `oom_watchdog_nmi_enabled` | `true` | Set `kernel.nmi_watchdog = 1` so the kernel itself can detect hard lockups. Disable on hosts where the NMI watchdog is unwanted (e.g. some virtualized environments). |
@@ -43,7 +43,7 @@ This role was developed for bare-metal GPU hosts running heavy workloads (`ere-s
       vars:
         oom_watchdog_timeout: 90
         oom_watchdog_interval: 30
-        oom_watchdog_max_load_1: 48
+        oom_watchdog_max_load_1_per_core: 6
 ```
 
 ## Verification

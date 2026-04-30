@@ -3,6 +3,6 @@ watchdog-device = {{ oom_watchdog_device }}
 watchdog-timeout = {{ oom_watchdog_timeout }}
 interval = {{ oom_watchdog_interval }}
 min-memory = {{ oom_watchdog_min_memory }}
-max-load-1 = {{ oom_watchdog_max_load_1 }}
+max-load-1 = {{ (oom_watchdog_max_load_1_per_core * ansible_processor_vcpus) | int }}
 realtime = {{ 'yes' if oom_watchdog_realtime else 'no' }}
 priority = {{ oom_watchdog_priority }}
