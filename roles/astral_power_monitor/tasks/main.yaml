@@ -1,0 +1,69 @@
+---
+- name: Install Python dependencies
+  ansible.builtin.apt:
+    name:
+      - python3-prometheus-client
+      - python3-yaml
+    state: present
+
+- name: Create application directory
+  ansible.builtin.file:
+    path: /opt/astral-power-monitor
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Deploy astral_power_monitor library
+  ansible.builtin.copy:
+    src: astral_power_monitor.py
+    dest: /opt/astral-power-monitor/astral_power_monitor.py
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart astral-power-monitor
+
+- name: Deploy astral daemon
+  ansible.builtin.copy:
+    src: astral_daemon.py
+    dest: /opt/astral-power-monitor/astral_daemon.py
+    owner: root
+    group: root
+    mode: '0755'
+  notify: Restart astral-power-monitor
+
+- name: Deploy configuration file
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/astral-power-monitor.yaml
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart astral-power-monitor
+
+- name: Deploy systemd service unit
+  ansible.builtin.template:
+    src: astral-power-monitor.service.j2
+    dest: /etc/systemd/system/astral-power-monitor.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart astral-power-monitor
+
+- name: Enable and start astral-power-monitor
+  ansible.builtin.systemd:
+    name: astral-power-monitor
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Deploy Vector scrape config
+  ansible.builtin.template:
+    src: vector-astral-power-monitor.yaml.j2
+    dest: /etc/vector/astral-power-monitor.yaml
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart Vector

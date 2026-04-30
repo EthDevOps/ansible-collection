@@ -1,0 +1,14 @@
+---
+- name: Restart astral-power-monitor
+  ansible.builtin.systemd:
+    name: astral-power-monitor
+    state: restarted
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart Vector
+  ansible.builtin.systemd:
+    name: vector-multi
+    state: restarted

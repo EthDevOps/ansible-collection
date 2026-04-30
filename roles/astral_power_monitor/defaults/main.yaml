@@ -1,0 +1,13 @@
+---
+astral_poll_interval: 1.0
+astral_prometheus_port: 9101
+astral_fire_hazard_enabled: true
+astral_fire_hazard_warning_stddev: 0.1
+astral_fire_hazard_critical_stddev: 0.5
+astral_fire_hazard_pin_current_warning: 8.0
+astral_fire_hazard_pin_current_critical: 9.2
+astral_fire_hazard_throttle_watts: 250
+astral_fire_hazard_restore_on_clear: true
+astral_fire_hazard_critical_count: 3
+astral_read_extra_rails: true
+astral_log_level: "INFO"

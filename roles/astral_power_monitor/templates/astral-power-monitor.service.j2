@@ -1,0 +1,23 @@
+{{ ansible_managed | comment }}
+[Unit]
+Description=Astral GPU Per-Pin Power Monitor
+After=network.target nvidia-persistenced.service
+Wants=nvidia-persistenced.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/astral-power-monitor/astral_daemon.py -c /etc/astral-power-monitor.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+
+# Run as root for i2c access and nvidia-smi power limit control
+User=root
+
+# Hardening
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

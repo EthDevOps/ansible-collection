@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: astral_power_monitor
+  author: EthDevOps
+  description: Deploy Astral GPU per-pin power monitor as a systemd service
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - nvidia
+    - gpu
+    - monitoring
+    - prometheus
+dependencies: []

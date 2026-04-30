@@ -1,0 +1,5 @@
+sources:
+  metrics_astral_power_monitor:
+    type: prometheus_scrape
+    endpoints:
+      - http://127.0.0.1:{{ astral_prometheus_port }}/metrics
