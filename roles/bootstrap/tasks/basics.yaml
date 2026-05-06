@@ -1,8 +1,14 @@
 ---
-- name: Deploy MotD
+- name: Deploy dynamic MotD generator
   ansible.builtin.template:
     src: motd.j2
+    dest: /etc/update-motd.d/99-custom
+    mode: '0755'
+- name: Clear static /etc/motd
+  ansible.builtin.copy:
     dest: /etc/motd
+    content: ''
+    mode: '0644'
 - name: Set hostname
   ansible.builtin.hostname:
     name: "{{ inventory_hostname }}"

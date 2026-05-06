@@ -1,3 +1,7 @@
+#!/bin/sh
+# Managed by Ansible (bootstrap role) — dynamic MOTD generator.
+
+cat <<'EOF_HEADER'
 ******************************************************************
 
 Hello, this is {{ ansible_hostname }}.
@@ -10,16 +14,56 @@ Hello, this is {{ ansible_hostname }}.
              /____          ||
                   `--.____,-'
 
-OS: {{ ansible_distribution }} {{ ansible_distribution_version }} ({{ ansible_distribution_release }}).
+EOF_HEADER
+
+if [ -r /etc/os-release ]; then
+    . /etc/os-release
+    os_label="${NAME:-Linux} ${VERSION_ID:-}"
+    [ -n "${VERSION_CODENAME:-}" ] && os_label="${os_label} (${VERSION_CODENAME})"
+else
+    os_label="$(uname -s)"
+fi
+printf 'OS: %s, Kernel: %s\n' "${os_label}" "$(uname -r)"
+
+cat <<'EOF_META'
 Team: {{ tenants[0] }}
 Project/Service: {{ project }}
 Environment: {{ hostvars[inventory_hostname]['environment'] }}
 
 Hosted on {{ sites[0] }}.
 
+EOF_META
+
+network_printed=0
+for iface_path in /sys/class/net/*; do
+    iface=${iface_path##*/}
+    case "${iface}" in
+        lo|docker*|veth*|br-*|virbr*|tap*|tun*|wg*|cni*|flannel*|kube*|cali*|vxlan*|fwbr*|fwln*|fwpr*)
+            continue
+            ;;
+    esac
+    # ARPHRD_ETHER == 1 — restricts to ethernet-style links.
+    [ "$(cat "${iface_path}/type" 2>/dev/null)" = "1" ] || continue
+
+    v4=$(ip -o -4 addr show dev "${iface}" 2>/dev/null | awk '{print $4}' | cut -d/ -f1)
+    v6=$(ip -o -6 addr show dev "${iface}" scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1)
+    [ -z "${v4}" ] && [ -z "${v6}" ] && continue
+
+    if [ "${network_printed}" -eq 0 ]; then
+        echo "Network:"
+        network_printed=1
+    fi
+    echo "  ${iface}:"
+    for a in ${v4}; do echo "    IPv4: ${a}"; done
+    for a in ${v6}; do echo "    IPv6: ${a}"; done
+done
+[ "${network_printed}" -eq 1 ] && echo
+
+cat <<'EOF_FOOTER'
 This system is controlled by the Ethereum Foundations DevOps Team.
 Unauthorized access to this device is prohibited.
 All activities performed on this device may be logged.
 
 Fly safe!
 ******************************************************************
+EOF_FOOTER
