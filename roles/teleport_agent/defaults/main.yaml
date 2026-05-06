@@ -1,6 +1,9 @@
 ---
 teleport_agent_apps: []
 teleport_agent_desktops: []
+# Managed Updates v2 group. Maps to a per-group schedule in the cluster's
+# autoupdate_config resource. Hosts with no group fall into the cluster default.
+teleport_agent_update_group: default
 # Enhanced session recording (BPF). Requires a recent kernel; scope per-group rather than globally.
 teleport_agent_enhanced_recording_enabled: false
 teleport_agent_enhanced_recording_command_buffer_size: 8

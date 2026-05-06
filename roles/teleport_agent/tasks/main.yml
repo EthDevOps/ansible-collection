@@ -1,49 +1,58 @@
 ---
-- name: Make sure apt keyrings directory exists
-  ansible.builtin.file:
-    state: directory
-    path: /etc/apt/keyrings
-- name: Get teleport apt key
-  ansible.builtin.get_url:
-    url: https://apt.releases.teleport.dev/gpg
-    dest: /etc/apt/keyrings/teleport.asc
-- name: Add Teleport repo
-  register: teleport_agent_add_repo
-  ansible.builtin.copy:
-    dest: /etc/apt/sources.list.d/teleport.list
-    content: >-
-      deb [signed-by=/etc/apt/keyrings/teleport.asc]
-      https://apt.releases.teleport.dev/{{ ansible_distribution | lower }}
-      {{ ansible_distribution_release }} {{ teleport_version }}
-- name: Remove old auto-generated teleport repo files
+- name: Check teleport-update status
+  ansible.builtin.command: teleport-update status
+  register: teleport_agent_update_status
+  failed_when: false
+  changed_when: false
+
+- name: Bootstrap Teleport via cluster install script
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    curl -fsSL "https://{{ teleport_cluster }}:443/scripts/install.sh?group={{ teleport_agent_update_group }}"
+    | bash
+  args:
+    executable: /bin/bash
+    creates: /usr/local/bin/teleport-update
+  when: teleport_agent_update_status.rc != 0
+
+- name: Reconcile teleport-update proxy and group
+  ansible.builtin.command: >-
+    teleport-update enable
+    --proxy {{ teleport_cluster }}
+    --group {{ teleport_agent_update_group }}
+  register: teleport_agent_update_enable
+  changed_when: >-
+    teleport_agent_update_status.rc != 0
+    or (teleport_agent_update_status.stdout is defined
+        and teleport_agent_update_group not in teleport_agent_update_status.stdout)
+
+- name: Remove legacy Teleport apt repo and key
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
   loop:
+    - /etc/apt/sources.list.d/teleport.list
+    - /etc/apt/keyrings/teleport.asc
     - /etc/apt/sources.list.d/apt_releases_teleport_dev_debian.list
     - /etc/apt/sources.list.d/apt_releases_teleport_dev_ubuntu.list
-- name: Run apt-get update
-  ansible.builtin.apt:
-    update_cache: true
-- name: Install Teleport agent
-  register: teleport_agent_install
-  notify: Reload teleport
-  ansible.builtin.apt:
-    state: latest
-    name: teleport
+
 - name: Generate Teleport join token on control node
   ansible.builtin.command: tctl tokens add --type=node,app,db,windowsdesktop --format=text
   delegate_to: localhost
   register: teleport_agent_tctl_output
   become: false
+  changed_when: false
+
 - name: Set Teleport token as fact
   ansible.builtin.set_fact:
     teleport_agent_token: "{{ teleport_agent_tctl_output.stdout }}"
+
 - name: Generate teleport config
   notify: Reload teleport
   ansible.builtin.template:
     src: teleport-config.yml.j2
     dest: /etc/teleport.yaml
+
 - name: Enable and start Teleport agent
   ansible.builtin.systemd:
     name: teleport
