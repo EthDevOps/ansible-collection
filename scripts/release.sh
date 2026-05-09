@@ -59,12 +59,12 @@ log "Current version: $CURRENT_VERSION"
 increment_version() {
     local version=$1
     local increment_type=$2
-    
+
     IFS='.' read -ra VERSION_PARTS <<< "$version"
     local major=${VERSION_PARTS[0]}
     local minor=${VERSION_PARTS[1]}
     local patch=${VERSION_PARTS[2]}
-    
+
     case $increment_type in
         "major")
             major=$((major + 1))
@@ -82,7 +82,7 @@ increment_version() {
             error "Invalid increment type: $increment_type"
             ;;
     esac
-    
+
     echo "$major.$minor.$patch"
 }
 

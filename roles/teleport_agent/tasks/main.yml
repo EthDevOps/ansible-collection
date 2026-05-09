@@ -4,7 +4,6 @@
   register: teleport_agent_update_status
   failed_when: false
   changed_when: false
-
 - name: Bootstrap Teleport via cluster install script
   ansible.builtin.shell: >-
     set -o pipefail;
@@ -14,7 +13,6 @@
     executable: /bin/bash
     creates: /usr/local/bin/teleport-update
   when: teleport_agent_update_status.rc != 0
-
 - name: Reconcile teleport-update proxy and group
   ansible.builtin.command: >-
     teleport-update enable
@@ -25,7 +23,6 @@
     teleport_agent_update_status.rc != 0
     or (teleport_agent_update_status.stdout is defined
         and teleport_agent_update_group not in teleport_agent_update_status.stdout)
-
 - name: Remove legacy Teleport apt repo and key
   ansible.builtin.file:
     path: "{{ item }}"
@@ -35,24 +32,20 @@
     - /etc/apt/keyrings/teleport.asc
     - /etc/apt/sources.list.d/apt_releases_teleport_dev_debian.list
     - /etc/apt/sources.list.d/apt_releases_teleport_dev_ubuntu.list
-
 - name: Generate Teleport join token on control node
   ansible.builtin.command: tctl tokens add --type=node,app,db,windowsdesktop --format=text
   delegate_to: localhost
   register: teleport_agent_tctl_output
   become: false
   changed_when: false
-
 - name: Set Teleport token as fact
   ansible.builtin.set_fact:
     teleport_agent_token: "{{ teleport_agent_tctl_output.stdout }}"
-
 - name: Generate teleport config
   notify: Reload teleport
   ansible.builtin.template:
     src: teleport-config.yml.j2
     dest: /etc/teleport.yaml
-
 - name: Enable and start Teleport agent
   ansible.builtin.systemd:
     name: teleport

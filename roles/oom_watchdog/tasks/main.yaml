@@ -5,7 +5,6 @@
     state: present
     update_cache: true
     cache_valid_time: 3600
-
 - name: Persist softdog kernel module load on boot
   ansible.builtin.copy:
     content: "softdog\n"
@@ -13,12 +12,10 @@
     owner: root
     group: root
     mode: '0644'
-
 - name: Load softdog kernel module
   community.general.modprobe:
     name: softdog
     state: present
-
 - name: Enable NMI watchdog
   ansible.posix.sysctl:
     name: kernel.nmi_watchdog
@@ -27,7 +24,6 @@
     state: present
     reload: true
   when: oom_watchdog_nmi_enabled
-
 - name: Deploy watchdog configuration
   ansible.builtin.template:
     src: watchdog.conf.j2
@@ -36,7 +32,6 @@
     group: root
     mode: '0644'
   notify: Restart watchdog
-
 - name: Enable and start watchdog service
   ansible.builtin.systemd:
     name: watchdog

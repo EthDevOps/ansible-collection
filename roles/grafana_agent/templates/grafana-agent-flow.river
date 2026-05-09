@@ -15,7 +15,7 @@ prometheus.remote_write "primary" {
     project = "{{ project }}",
     environment = "{{ hostvars[inventory_hostname]['environment'] }}",
     tenant = "{{ tenants[0] }}",
- 
+
   }
 }
 
@@ -141,4 +141,3 @@ loki.source.docker "default" {
   targets    = discovery.docker.linux.targets
   forward_to = [loki.write.endpoint.receiver]
 }
-
