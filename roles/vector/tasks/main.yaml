@@ -39,9 +39,13 @@
   register: vector_docker_group_check
   changed_when: false
   failed_when: false
+- name: Check if docker socket exists
+  ansible.builtin.stat:
+    path: /var/run/docker.sock
+  register: vector_docker_socket_check
 - name: Set fact if docker is installed
   ansible.builtin.set_fact:
-    vector_docker_installed: "{{ vector_docker_group_check.rc == 0 }}"
+    vector_docker_installed: "{{ vector_docker_socket_check.stat.exists and vector_docker_socket_check.stat.issock }}"
 - name: Add user to docker group if group exists
   ansible.builtin.user:
     name: vector
