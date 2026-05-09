@@ -3,6 +3,9 @@
   ansible.builtin.file:
     path: /etc/apt/keyrings
     state: directory
+- name: Make sure GunPG is installed
+  ansible.builtin.apt:
+    name: gnupg2
 - name: Remove old openbytes repo configuration
   ansible.builtin.file:
     path: /etc/apt/sources.list.d/repo_openbytes_ie_patchman_debian.list
