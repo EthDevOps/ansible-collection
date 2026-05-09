@@ -7,6 +7,17 @@ repos:
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
+  - repo: local
+    hooks:
+      # Galaxy's import process rejects collections where any role is missing a
+      # README.md ("Galaxy import process failed: No role readme found"). This
+      # check fails the commit early instead of failing the release pipeline.
+      - id: roles-readme-check
+        name: Ensure every role has a README.md
+        language: system
+        entry: "bash -c 'fail=0; for d in roles/*/; do [ -f \"${d}README.md\" ] || { echo \"Missing role README - ${d}README.md\"; fail=1; }; done; exit $fail'"
+        pass_filenames: false
+        always_run: true
   - repo: https://github.com/ansible/ansible-lint
     rev: v26.3.0
     hooks:

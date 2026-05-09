@@ -5,7 +5,10 @@ on:
     tags:
       - 'v*.*.*'
 jobs:
+  lint:
+    uses: ./.github/workflows/ci.yml
   release:
+    needs: lint
     runs-on: ubuntu-latest
     permissions:
       contents: write
