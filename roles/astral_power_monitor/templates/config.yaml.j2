@@ -1,22 +1,22 @@
 {{ ansible_managed | comment }}
 
-poll_interval: {{ astral_poll_interval }}
+poll_interval: {{ astral_power_monitor_poll_interval }}
 
 prometheus:
   enabled: true
   host: "0.0.0.0"
-  port: {{ astral_prometheus_port }}
+  port: {{ astral_power_monitor_prometheus_port }}
 
 fire_hazard:
-  enabled: {{ astral_fire_hazard_enabled | lower }}
-  warning_stddev: {{ astral_fire_hazard_warning_stddev }}
-  critical_stddev: {{ astral_fire_hazard_critical_stddev }}
-  pin_current_warning: {{ astral_fire_hazard_pin_current_warning }}
-  pin_current_critical: {{ astral_fire_hazard_pin_current_critical }}
-  throttle_power_limit_watts: {{ astral_fire_hazard_throttle_watts }}
-  restore_on_clear: {{ astral_fire_hazard_restore_on_clear | lower }}
-  critical_count_before_throttle: {{ astral_fire_hazard_critical_count }}
+  enabled: {{ astral_power_monitor_fire_hazard_enabled | lower }}
+  warning_stddev: {{ astral_power_monitor_fire_hazard_warning_stddev }}
+  critical_stddev: {{ astral_power_monitor_fire_hazard_critical_stddev }}
+  pin_current_warning: {{ astral_power_monitor_fire_hazard_pin_current_warning }}
+  pin_current_critical: {{ astral_power_monitor_fire_hazard_pin_current_critical }}
+  throttle_power_limit_watts: {{ astral_power_monitor_fire_hazard_throttle_watts }}
+  restore_on_clear: {{ astral_power_monitor_fire_hazard_restore_on_clear | lower }}
+  critical_count_before_throttle: {{ astral_power_monitor_fire_hazard_critical_count }}
 
-read_extra_rails: {{ astral_read_extra_rails | lower }}
+read_extra_rails: {{ astral_power_monitor_read_extra_rails | lower }}
 
-log_level: "{{ astral_log_level }}"
+log_level: "{{ astral_power_monitor_log_level }}"
