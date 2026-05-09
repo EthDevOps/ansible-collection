@@ -7,17 +7,21 @@
   ansible.builtin.file:
     path: /etc/apt/sources.list.d/repo_openbytes_ie_patchman_debian.list
     state: absent
-- name: Remove obsolete openbytes apt key
-  ansible.builtin.file:
-    path: /etc/apt/keyrings/openbytes.gpg
-    state: absent
-# trusted=yes without signed-by: the upstream openbytes signing key has
-# invalid binding signatures that trixie's sqv verifier rejects, producing
-# noisy warnings on every apt update. trusted=yes already short-circuits
-# verification, so dropping signed-by stops apt from attempting it at all.
+# Upstream ships a separate key for trixie+ (openbytes-1.gpg) because the
+# original openbytes.gpg has malformed binding signatures that trixie's sqv
+# verifier rejects. force: true ensures hosts upgraded across suites pick up
+# the new key on the next run.
+- name: Get openbytes apt key
+  ansible.builtin.get_url:
+    url: "{{ 'https://repo.openbytes.ie/openbytes-1.gpg' if ansible_facts['distribution_release'] in ['trixie', 'forky'] else 'https://repo.openbytes.ie/openbytes.gpg' }}"
+    dest: /etc/apt/keyrings/openbytes.gpg
+    force: true
+  notify:
+    - Update apt cache
 - name: Add openbytes repo
   ansible.builtin.apt_repository:
-    repo: "deb [trusted=yes] https://repo.openbytes.ie/patchman/debian {{ ansible_distribution_release }} main"
+    repo: "deb [signed-by=/etc/apt/keyrings/openbytes.gpg] https://repo.openbytes.ie/patchman/debian {{ ansible_facts['distribution_release'] }} main"
+    filename: patchman
   notify:
     - Update apt cache
 - name: Install PatchMan client
