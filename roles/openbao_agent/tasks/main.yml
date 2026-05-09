@@ -7,7 +7,7 @@
     update_cache: true
 - name: Set architecture mapping
   ansible.builtin.set_fact:
-    openbao_agent_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"
+    openbao_agent_arch: "{{ 'amd64' if ansible_facts['architecture'] == 'x86_64' else 'arm64' if ansible_facts['architecture'] == 'aarch64' else ansible_facts['architecture'] }}"
 - name: Download OpenBao GPG key
   ansible.builtin.get_url:
     url: https://openbao.org/assets/openbao-gpg-pub-20240618.asc
