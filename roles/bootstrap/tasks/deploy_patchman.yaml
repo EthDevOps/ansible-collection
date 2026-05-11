@@ -13,13 +13,13 @@
   loop:
     - /etc/apt/sources.list.d/repo_openbytes_ie_patchman_debian.list
     - /etc/apt/sources.list.d/repo_openbytes_ie_patchman_ubuntu.list
-# Upstream ships a separate key for trixie+ (openbytes-1.gpg) because the
-# original openbytes.gpg has malformed binding signatures that trixie's sqv
-# verifier rejects. force: true ensures hosts upgraded across suites pick up
-# the new key on the next run.
+# Ubuntu and Debian trixie+ require openbytes-1.gpg; the original openbytes.gpg
+# has malformed binding signatures that trixie's sqv verifier rejects and does
+# not contain the key used to sign the Ubuntu repo (551582C0FCAAD24A).
+# force: true ensures hosts re-fetch the key after a distro upgrade.
 - name: Get openbytes apt key
   ansible.builtin.get_url:
-    url: "{{ 'https://repo.openbytes.ie/openbytes-1.gpg' if ansible_facts['distribution_release'] in ['trixie', 'forky'] else 'https://repo.openbytes.ie/openbytes.gpg' }}"
+    url: "{{ 'https://repo.openbytes.ie/openbytes-1.gpg' if (ansible_facts['distribution'] == 'Ubuntu' or ansible_facts['distribution_release'] in ['trixie', 'forky']) else 'https://repo.openbytes.ie/openbytes.gpg' }}"
     dest: /etc/apt/keyrings/openbytes.gpg
     force: true
   notify:
