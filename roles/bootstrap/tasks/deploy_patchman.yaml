@@ -25,14 +25,12 @@
   when: ansible_facts['distribution'] == 'Debian'
   notify:
     - Update apt cache
-
 - name: Download openbytes apt key (Ubuntu)
   ansible.builtin.get_url:
     url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x551582C0FCAAD24A&options=mr"
     dest: /tmp/openbytes.asc
     force: true
   when: ansible_facts['distribution'] == 'Ubuntu'
-
 - name: Install openbytes apt key (Ubuntu)
   ansible.builtin.command:
     cmd: gpg --batch --yes --dearmor -o /etc/apt/keyrings/openbytes.gpg /tmp/openbytes.asc
