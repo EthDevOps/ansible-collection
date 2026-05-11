@@ -8,8 +8,11 @@
     name: gnupg2
 - name: Remove old openbytes repo configuration
   ansible.builtin.file:
-    path: /etc/apt/sources.list.d/repo_openbytes_ie_patchman_debian.list
+    path: "{{ item }}"
     state: absent
+  loop:
+    - /etc/apt/sources.list.d/repo_openbytes_ie_patchman_debian.list
+    - /etc/apt/sources.list.d/repo_openbytes_ie_patchman_ubuntu.list
 # Upstream ships a separate key for trixie+ (openbytes-1.gpg) because the
 # original openbytes.gpg has malformed binding signatures that trixie's sqv
 # verifier rejects. force: true ensures hosts upgraded across suites pick up
@@ -23,7 +26,7 @@
     - Update apt cache
 - name: Add openbytes repo
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/openbytes.gpg] https://repo.openbytes.ie/patchman/debian {{ ansible_facts['distribution_release'] }} main"
+    repo: "deb [signed-by=/etc/apt/keyrings/openbytes.gpg] https://repo.openbytes.ie/patchman/{{ ansible_facts['distribution'] | lower }} {{ ansible_facts['distribution_release'] }} main"
     filename: patchman
   notify:
     - Update apt cache
