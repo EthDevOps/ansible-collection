@@ -3,6 +3,8 @@ Description=Vector MultiConfig
 Documentation=https://vector.dev
 After=network-online.target
 Requires=network-online.target
+StartLimitIntervalSec=10
+StartLimitBurst=5
 
 [Service]
 User=vector
@@ -12,11 +14,10 @@ ExecStart=/usr/bin/vector --config /etc/vector/*.yaml
 ExecReload=/usr/bin/vector validate --config-yaml /etc/vector/*.yaml
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
-AmbientCapabilities=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE,CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE,CAP_DAC_READ_SEARCH
+NoNewPrivileges=false
 EnvironmentFile=-/etc/default/vector
-# Since systemd 229, should be in [Unit] but in order to support systemd <229,
-# it is also supported to have it here.
-StartLimitInterval=10
-StartLimitBurst=5
+
 [Install]
 WantedBy=multi-user.target
