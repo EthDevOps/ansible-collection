@@ -85,13 +85,17 @@
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
-- name: Enable and check K3s service # noqa: no-handler
+- name: Get k3s-server service state
+  ansible.builtin.systemd:
+    name: k3s-server
+  register: k3s_server_state
+- name: Enable and check K3s server # noqa: no-handler
   ansible.builtin.systemd:
     name: k3s-server
     state: restarted
     enabled: true
   throttle: 1
-  when: k3s_service.changed
+  when: k3s_service.changed or k3s_server_state.status.ActiveState != 'active'
 - name: Wait for k3s server to be ready after restart # noqa: no-handler
   ansible.builtin.command: k3s kubectl get nodes
   register: k3s_ready
@@ -100,7 +104,7 @@
   delay: 10
   changed_when: false
   throttle: 1
-  when: k3s_service.changed
+  when: k3s_service.changed or k3s_server_state.status.ActiveState != 'active'
 - name: Copy config file to user home directory
   ansible.builtin.copy:
     src: /etc/rancher/k3s/k3s.yaml
