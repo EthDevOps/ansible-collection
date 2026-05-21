@@ -10,6 +10,11 @@
   when: k3s_bootstrap is not defined
   ansible.builtin.set_fact:
     k3s_server_join: "--server=https://{{ k3s_server_lb_ip }}:6443"
+- name: Copy vector audit scraper
+  ansible.builtin.copy:
+    src: vector-audit.yaml
+    dest: /etc/vector/k3s.yaml
+  notify: vector_service
 - name: Copy K3s service file
   register: k3s_service
   ansible.builtin.template:
@@ -47,6 +52,11 @@
     owner: root
     group: root
     mode: "0600"
+  when: k3s_hardening_enabled
+- name: Create Server Audit directory
+  ansible.builtin.file:
+    path: "{{ k3s_server_location }}/server"
+    state: directory
   when: k3s_hardening_enabled
 - name: Deploy audit policy file
   ansible.builtin.copy:

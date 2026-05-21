@@ -1,0 +1,13 @@
+---
+sources:
+  k3s_audit:
+    type: file
+    include: ["/var/lib/rancher/k3s/server/logs/audit.log"]
+    read_from: end
+transforms:
+  logs_k3s_audit_json:
+    type: remap
+    inputs: [k3s_audit]
+    source: |
+      . = parse_json!(.message)
+      .tags.log_type = "k3s-audit"
