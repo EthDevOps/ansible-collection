@@ -1,0 +1,5 @@
+sources:
+  metrics_dcgm_exporter:
+    type: prometheus_scrape
+    endpoints:
+      - http://127.0.0.1:{{ dcgm_exporter_prometheus_port }}/metrics

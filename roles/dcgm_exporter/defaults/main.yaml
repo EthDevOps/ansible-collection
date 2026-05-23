@@ -1,0 +1,10 @@
+---
+dcgm_exporter_package_version: "4.8.2-1"
+dcgm_exporter_manager_package: datacenter-gpu-manager-4-cuda12
+dcgm_exporter_manager_version: "4.5.3-1"
+dcgm_exporter_listen_address: "0.0.0.0:9400"
+dcgm_exporter_prometheus_port: 9400
+dcgm_exporter_collectors_file: /etc/dcgm-exporter/default-counters.csv
+dcgm_exporter_collect_interval_ms: 30000
+dcgm_exporter_extra_args: []
+dcgm_exporter_cuda_keyring_version: "1.1-1"

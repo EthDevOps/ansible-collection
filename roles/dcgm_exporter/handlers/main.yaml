@@ -1,0 +1,16 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+- name: Restart nvidia-dcgm
+  ansible.builtin.systemd:
+    name: nvidia-dcgm
+    state: restarted
+- name: Restart dcgm-exporter
+  ansible.builtin.systemd:
+    name: nvidia-dcgm-exporter
+    state: restarted
+- name: Restart Vector
+  ansible.builtin.systemd:
+    name: vector-multi
+    state: restarted

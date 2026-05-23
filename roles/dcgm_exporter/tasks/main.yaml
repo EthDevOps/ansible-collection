@@ -1,0 +1,58 @@
+---
+- name: Derive NVIDIA CUDA apt repo path
+  ansible.builtin.set_fact:
+    dcgm_exporter_nvidia_repo_path: "{% if ansible_facts['distribution'] == 'Ubuntu' %}ubuntu{{ ansible_facts['distribution_version'] | replace('.', '') }}{% elif ansible_facts['distribution'] == 'Debian' %}debian{{ ansible_facts['distribution_major_version'] }}{% endif %}"
+- name: Fail if distribution is unsupported
+  ansible.builtin.fail:
+    msg: "dcgm_exporter role only supports Debian/Ubuntu (got {{ ansible_facts['distribution'] }})"
+  when: dcgm_exporter_nvidia_repo_path == ""
+- name: Install NVIDIA CUDA apt keyring
+  ansible.builtin.apt:
+    deb: "https://developer.download.nvidia.com/compute/cuda/repos/{{ dcgm_exporter_nvidia_repo_path }}/x86_64/cuda-keyring_{{ dcgm_exporter_cuda_keyring_version }}_all.deb"
+- name: Install DCGM hostengine
+  ansible.builtin.apt:
+    name: "{{ dcgm_exporter_manager_package }}={{ dcgm_exporter_manager_version }}"
+    state: present
+    update_cache: true
+  notify: Restart nvidia-dcgm
+- name: Install DCGM exporter
+  ansible.builtin.apt:
+    name: "datacenter-gpu-manager-exporter={{ dcgm_exporter_package_version }}"
+    state: present
+  notify: Restart dcgm-exporter
+- name: Enable and start nvidia-dcgm
+  ansible.builtin.systemd:
+    name: nvidia-dcgm
+    state: started
+    enabled: true
+- name: Create dcgm-exporter systemd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/nvidia-dcgm-exporter.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+- name: Deploy dcgm-exporter systemd override
+  ansible.builtin.template:
+    src: dcgm-exporter.service.d-override.conf.j2
+    dest: /etc/systemd/system/nvidia-dcgm-exporter.service.d/override.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart dcgm-exporter
+- name: Enable and start dcgm-exporter
+  ansible.builtin.systemd:
+    name: nvidia-dcgm-exporter
+    state: started
+    enabled: true
+    daemon_reload: true
+- name: Deploy Vector scrape config
+  ansible.builtin.template:
+    src: vector-dcgm-exporter.yaml.j2
+    dest: /etc/vector/dcgm-exporter.yaml
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart Vector

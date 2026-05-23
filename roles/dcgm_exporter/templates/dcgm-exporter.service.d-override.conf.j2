@@ -1,0 +1,8 @@
+{{ ansible_managed | comment }}
+[Service]
+ExecStart=
+ExecStart=/usr/bin/dcgm-exporter \
+  --address={{ dcgm_exporter_listen_address }} \
+  --collectors={{ dcgm_exporter_collectors_file }} \
+  --collect-interval={{ dcgm_exporter_collect_interval_ms }}{% for arg in dcgm_exporter_extra_args %} \
+  {{ arg }}{% endfor %}

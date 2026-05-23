@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: dcgm_exporter
+  author: EthDevOps
+  description: Deploy NVIDIA DCGM exporter (datacenter-gpu-manager-exporter) as a systemd service
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - nvidia
+    - gpu
+    - dcgm
+    - monitoring
+    - prometheus
+dependencies: []
