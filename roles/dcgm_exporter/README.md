@@ -23,7 +23,7 @@ Deploys the NVIDIA DCGM exporter (`datacenter-gpu-manager-exporter`) as a system
 |----------|---------|-------------|
 | `dcgm_exporter_package_version` | `4.8.2-1` | apt-pinned version for `datacenter-gpu-manager-exporter`. |
 | `dcgm_exporter_manager_package` | `datacenter-gpu-manager-4-cuda12` | DCGM hostengine package (use `-4-core` if CUDA 12 libs are not desired). |
-| `dcgm_exporter_manager_version` | `4.5.3-1` | apt-pinned version for the DCGM hostengine package. |
+| `dcgm_exporter_manager_version` | `1:4.5.3-1` | apt-pinned version for the DCGM hostengine package (NVIDIA ships this package with epoch `1:` — include it). |
 | `dcgm_exporter_listen_address` | `0.0.0.0:9400` | `--address` flag for the exporter. |
 | `dcgm_exporter_prometheus_port` | `9400` | Port Vector scrapes (should match the port in `dcgm_exporter_listen_address`). |
 | `dcgm_exporter_collectors_file` | `/etc/dcgm-exporter/default-counters.csv` | `--collectors` CSV file shipped by the deb. Other choices: `dcp-metrics-included.csv`, `1.x-compatibility-metrics.csv`. |
