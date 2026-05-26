@@ -58,12 +58,14 @@ userlist {{ group.group }}
     {% endfor %}
 {% endfor %}
 
+{% if haproxy_lb_cache_enabled | default(false) %}
 cache global_cache
   total-max-size 512 # 512 MB
   max-object-size 102400 # 100 KB
   max-age 600 # Stay in cache for 10 minutes
   process-vary on
   max-secondary-entries 12
+{% endif %}
 
 listen stats
     bind 127.0.0.1:32700
@@ -216,7 +218,7 @@ frontend http
     {% if haproxy_lb_sites[site].path is defined %}
     acl path_{{ site }} path -i -m beg {{ haproxy_lb_sites[site].path }}
     {% endif %}
-    {% if haproxy_lb_sites[site].use_cache is defined and haproxy_lb_sites[site].use_cache == 'true' %}
+    {% if (haproxy_lb_cache_enabled | default(false)) and haproxy_lb_sites[site].use_cache is defined and haproxy_lb_sites[site].use_cache == 'true' %}
     http-request cache-use global_cache if host_{{ site }}
     http-response cache-store global_cache if host_{{ site }}
     {% endif %}
@@ -263,7 +265,7 @@ frontend http
     {% if svc.metadata.annotations["ethquokkaops.io/internal-only"] is defined %}
     http-request deny if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} !{ src 10.128.0.0/9 }
     {% endif %}
-    {% if svc.metadata.annotations["ethquokkaops.io/use_cache"] is defined and svc.metadata.annotations["ethquokkaops.io/use_cache"] == 'true' %}
+    {% if (haproxy_lb_cache_enabled | default(false)) and svc.metadata.annotations["ethquokkaops.io/use_cache"] is defined and svc.metadata.annotations["ethquokkaops.io/use_cache"] == 'true' %}
     http-request cache-use global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
     http-response cache-store global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
     {% endif %}
@@ -298,7 +300,7 @@ frontend http
     {% if svc.metadata.annotations["ethquokkaops.io/internal-only"] is defined %}
     http-request deny if { hdr(host) -i {{ domain }} } !{ src 10.128.0.0/9 }
     {% endif %}
-    {% if svc.metadata.annotations["ethquokkaops.io/use_cache"] is defined and svc.metadata.annotations["ethquokkaops.io/use_cache"] == 'true' %}
+    {% if (haproxy_lb_cache_enabled | default(false)) and svc.metadata.annotations["ethquokkaops.io/use_cache"] is defined and svc.metadata.annotations["ethquokkaops.io/use_cache"] == 'true' %}
     http-request cache-use global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     http-response cache-store global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     {% endif %}

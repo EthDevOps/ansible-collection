@@ -21,3 +21,4 @@ haproxy_lb_k8s_cluster_nodes: {}
 #   - Domain groups: domain name (e.g., "example.com")
 haproxy_lb_backend_extra_config: {}
 haproxy_lb_quic_enabled: false
+haproxy_lb_cache_enabled: false
