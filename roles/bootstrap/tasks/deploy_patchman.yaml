@@ -13,29 +13,31 @@
   loop:
     - /etc/apt/sources.list.d/repo_openbytes_ie_patchman_debian.list
     - /etc/apt/sources.list.d/repo_openbytes_ie_patchman_ubuntu.list
-# Debian: openbytes ships openbytes-1.gpg for trixie+ because the original key
-# has malformed binding signatures that trixie's sqv verifier rejects.
-# Ubuntu: the patchman/ubuntu repo is signed with a different key (551582C0FCAAD24A)
-# not present in openbytes.gpg or openbytes-1.gpg; fetch it from keyserver instead.
-- name: Get openbytes apt key (Debian)
+# Debian trixie+: openbytes ships openbytes-1.gpg because the original key has
+# malformed binding signatures that trixie's sqv verifier rejects.
+# Debian bookworm / Ubuntu: the patchman repo is signed with key 551582C0FCAAD24A
+# which is not present in openbytes.gpg or openbytes-1.gpg; fetch from keyserver.
+- name: Get openbytes apt key (Debian trixie+)
   ansible.builtin.get_url:
-    url: "{{ 'https://repo.openbytes.ie/openbytes-1.gpg' if ansible_facts['distribution_release'] in ['trixie', 'forky'] else 'https://repo.openbytes.ie/openbytes.gpg' }}"
+    url: "https://repo.openbytes.ie/openbytes-1.gpg"
     dest: /etc/apt/keyrings/openbytes.gpg
     force: true
-  when: ansible_facts['distribution'] == 'Debian'
+  when: ansible_facts['distribution'] == 'Debian' and ansible_facts['distribution_release'] in ['trixie', 'forky']
   notify:
     - Update apt cache
-- name: Download openbytes apt key (Ubuntu)
+- name: Download openbytes apt key from keyserver (Debian bookworm / Ubuntu)
   ansible.builtin.get_url:
     url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x551582C0FCAAD24A&options=mr"
     dest: /tmp/openbytes.asc
     force: true
-  when: ansible_facts['distribution'] == 'Ubuntu'
-- name: Install openbytes apt key (Ubuntu)
+  when: ansible_facts['distribution'] == 'Ubuntu' or
+        (ansible_facts['distribution'] == 'Debian' and ansible_facts['distribution_release'] not in ['trixie', 'forky'])
+- name: Install openbytes apt key from keyserver (Debian bookworm / Ubuntu)
   ansible.builtin.command:
     cmd: gpg --batch --yes --dearmor -o /etc/apt/keyrings/openbytes.gpg /tmp/openbytes.asc
   changed_when: true
-  when: ansible_facts['distribution'] == 'Ubuntu'
+  when: ansible_facts['distribution'] == 'Ubuntu' or
+        (ansible_facts['distribution'] == 'Debian' and ansible_facts['distribution_release'] not in ['trixie', 'forky'])
   notify:
     - Update apt cache
 - name: Add openbytes repo
