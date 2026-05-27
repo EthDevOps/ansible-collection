@@ -13,6 +13,7 @@
   loop:
     - /etc/apt/sources.list.d/repo_openbytes_ie_patchman_debian.list
     - /etc/apt/sources.list.d/repo_openbytes_ie_patchman_ubuntu.list
+    - /etc/apt/sources.list.d/patchman.list
 # Debian trixie+: openbytes ships openbytes-1.gpg because the original key has
 # malformed binding signatures that trixie's sqv verifier rejects.
 # Debian bookworm / Ubuntu: the patchman repo is signed with key 551582C0FCAAD24A
