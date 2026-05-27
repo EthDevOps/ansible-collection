@@ -5,10 +5,9 @@ After=network-online.target
 
 [Service]
 Type=notify
-Environment="K3S_TOKEN={{ k3s_token }}"
 ExecStartPre=-/sbin/modprobe br_netfilter
 ExecStartPre=-/sbin/modprobe overlay
-ExecStart=/usr/local/bin/k3s server --disable=servicelb --disable=traefik --tls-san {{ k3s_server_lb_ip }} --cluster-init --flannel-backend={{ k3s_network_backend }} --data-dir {{ k3s_server_location }} \
+ExecStart=/usr/local/bin/k3s server --token-file=/etc/rancher/k3s/token --disable=servicelb --disable=traefik --tls-san {{ k3s_server_lb_ip }} --cluster-init --flannel-backend={{ k3s_network_backend }} --data-dir {{ k3s_server_location }} \
 {% if k3s_hardening_enabled %}
     --protect-kernel-defaults \
     --kubelet-arg="streaming-connection-idle-timeout=5m" \

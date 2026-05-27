@@ -5,10 +5,9 @@ After=network-online.target
 
 [Service]
 Type=notify
-Environment="K3S_TOKEN={{ k3s_token }}"
 ExecStartPre=-/sbin/modprobe br_netfilter
 ExecStartPre=-/sbin/modprobe overlay
-ExecStart=/usr/local/bin/k3s agent --server https://{{ k3s_server_lb_ip }}:6443 \
+ExecStart=/usr/local/bin/k3s agent --token-file=/etc/rancher/k3s/token --server https://{{ k3s_server_lb_ip }}:6443 \
 {% if k3s_hardening_enabled %}
     --protect-kernel-defaults \
     --kubelet-arg="streaming-connection-idle-timeout=5m" \

@@ -63,14 +63,25 @@
   ansible.builtin.package:
     name: acl
     state: present
+# openbao-agent renders /etc/vector/vector.yaml via the template stanza in
+# bao_config.hcl. The stanza sets perms/group on each render (atomic
+# create-and-rename), but a chgrp to 'vector' only succeeds if the openbao
+# process is itself a member of that group. Add it before the agent starts.
+- name: Add openbao user to vector group
+  when: vector_use_openbao
+  ansible.builtin.user:
+    name: openbao
+    groups: vector
+    append: true
+  notify: Restart OpenBao Agent
 - name: Ensure vector config file exists for ACL
   when: vector_use_openbao
   ansible.builtin.file:
     path: /etc/vector/vector.yaml
     state: touch
     owner: root
-    group: root
-    mode: '0644'
+    group: vector
+    mode: '0640'
     modification_time: preserve
     access_time: preserve
 - name: Set ACL for openbao on vector dir

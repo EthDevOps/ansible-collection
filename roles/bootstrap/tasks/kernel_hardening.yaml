@@ -1,0 +1,26 @@
+---
+# Kernel hardening sysctls applied to every host bootstrapped via this role.
+# Each setting closes a specific information-disclosure or attack-surface gap
+# that ships open by default on Debian/Ubuntu.
+- name: Apply kernel hardening sysctls
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/95-bootstrap-hardening.conf
+    state: present
+    reload: true
+  loop:
+    # Reverse-path filter: drop packets whose source address is not routable
+    # back via the receiving interface. Defends against IP spoofing on shared
+    # L2 segments and asymmetric-route abuse against BGP-advertised pods.
+    - { name: net.ipv4.conf.all.rp_filter, value: "1" }
+    - { name: net.ipv4.conf.default.rp_filter, value: "1" }
+    # Hide kernel pointers from unprivileged readers of /proc, /sys, dmesg.
+    - { name: kernel.kptr_restrict, value: "1" }
+    # Restrict ptrace(2) to direct parent processes; blocks unrelated
+    # processes from inspecting / hijacking each other under the same uid.
+    - { name: kernel.yama.ptrace_scope, value: "1" }
+    # Enable Spectre v1/v2 mitigations in the BPF JIT compiler.
+    - { name: net.core.bpf_jit_harden, value: "2" }
+    # Forbid kexec_load(2) — prevents kernel replacement at runtime.
+    - { name: kernel.kexec_load_disabled, value: "1" }
