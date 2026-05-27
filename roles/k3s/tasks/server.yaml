@@ -82,6 +82,56 @@
     group: root
     mode: '0700'
   when: k3s_hardening_enabled
+# k3s keeps the audit log under /var/lib/rancher/k3s/server/logs/ at 0700
+# root:root. Vector's file source needs read+traverse to ingest it; the
+# CAP_DAC_READ_SEARCH ambient cap can grant this in principle but was
+# observed to leave vector's source in a silent wedge. POSIX ACLs scope a
+# stable read grant to the shipper user without relaxing the dir mode.
+- name: Check whether the configured audit log reader user exists
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ k3s_audit_log_reader_user }}"
+    fail_key: false
+  register: k3s_audit_reader
+  when: k3s_hardening_enabled and k3s_audit_log_reader_user | length > 0
+- name: Set fact for audit log ACL enablement
+  ansible.builtin.set_fact:
+    k3s_audit_acl_enabled: >-
+      {{ k3s_hardening_enabled
+         and (k3s_audit_log_reader_user | length > 0)
+         and (k3s_audit_reader.ansible_facts.getent_passwd[k3s_audit_log_reader_user] | default(false)) is truthy }}
+- name: Ensure acl package is installed for audit log shipper
+  ansible.builtin.package:
+    name: acl
+    state: present
+  when: k3s_audit_acl_enabled | bool
+- name: Grant audit log reader traverse on k3s server dir
+  ansible.posix.acl:
+    path: "{{ k3s_server_location }}/server"
+    entity: "{{ k3s_audit_log_reader_user }}"
+    etype: user
+    permissions: x
+    state: present
+  when: k3s_audit_acl_enabled | bool
+- name: Grant audit log reader read+traverse on audit log directory
+  ansible.posix.acl:
+    path: "{{ k3s_server_location }}/server/logs"
+    entity: "{{ k3s_audit_log_reader_user }}"
+    etype: user
+    permissions: rx
+    state: present
+  when: k3s_audit_acl_enabled | bool
+  notify: Restart audit log shipper
+- name: Default ACL so rotated audit log files inherit reader access
+  ansible.posix.acl:
+    path: "{{ k3s_server_location }}/server/logs"
+    entity: "{{ k3s_audit_log_reader_user }}"
+    etype: user
+    permissions: r
+    default: true
+    state: present
+  when: k3s_audit_acl_enabled | bool
+  notify: Restart audit log shipper
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
@@ -105,6 +155,27 @@
   changed_when: false
   throttle: 1
   when: k3s_service.changed or k3s_server_state.status.ActiveState != 'active'
+# The default ACL handles future rotations, but k3s already created the
+# live audit.log before this role applied ACLs to its parent directory —
+# explicitly grant the reader access on the current file so the shipper
+# doesn't have to wait for a rollover. Notifies the shipper restart so a
+# wedged vector source picks up the new file immediately.
+- name: Stat current audit.log
+  ansible.builtin.stat:
+    path: "{{ k3s_server_location }}/server/logs/audit.log"
+  register: k3s_audit_log_file
+  when: k3s_audit_acl_enabled | bool
+- name: Grant audit log reader read on current audit.log
+  ansible.posix.acl:
+    path: "{{ k3s_server_location }}/server/logs/audit.log"
+    entity: "{{ k3s_audit_log_reader_user }}"
+    etype: user
+    permissions: r
+    state: present
+  when:
+    - k3s_audit_acl_enabled | bool
+    - k3s_audit_log_file.stat.exists | default(false)
+  notify: Restart audit log shipper
 - name: Copy config file to user home directory
   ansible.builtin.copy:
     src: /etc/rancher/k3s/k3s.yaml

@@ -3,3 +3,14 @@
   ansible.builtin.systemd:
     name: vector-multi
     state: reloaded
+# Notified by the audit-log ACL tasks. Vector's file source has been
+# observed to silently wedge if it couldn't read the audit log on first
+# scan; a one-shot restart re-bootstraps the source against the now-readable
+# path. failed_when:false keeps the handler harmless on hosts where the
+# shipper isn't installed (e.g. the k3s_audit_log_reader_user feature is on
+# but vector-multi was named differently or has been removed).
+- name: Restart audit log shipper
+  ansible.builtin.systemd:
+    name: vector-multi
+    state: restarted
+  failed_when: false
