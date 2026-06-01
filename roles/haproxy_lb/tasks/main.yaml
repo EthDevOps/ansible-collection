@@ -1,7 +1,17 @@
 ---
-- name: Install prerequisites
+- name: Update apt cache (tolerate broken third-party repos)
   ansible.builtin.apt:
     update_cache: true
+  register: haproxy_lb_apt_update_pre
+  failed_when: false
+- name: Warn if apt cache update did not fully succeed
+  when: haproxy_lb_apt_update_pre.failed | default(false) or 'Failed to fetch' in (haproxy_lb_apt_update_pre.stderr | default(''))
+  ansible.builtin.debug:
+    msg: >-
+      apt-get update reported errors; continuing with the existing cache.
+      Details: {{ haproxy_lb_apt_update_pre.msg | default(haproxy_lb_apt_update_pre.stderr | default('unknown')) }}
+- name: Install prerequisites
+  ansible.builtin.apt:
     pkg:
       - gpg
       - wget
@@ -24,9 +34,20 @@
     repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/HAPROXY-key-community.asc] https://www.haproxy.com/download/haproxy/performance/debian/ha33 trixie main"
     state: present
     filename: haproxy
-- name: Install haproxy with AWS-LC
+- name: Update apt cache after adding HAProxy repo (tolerate broken third-party repos)
   ansible.builtin.apt:
     update_cache: true
+  register: haproxy_lb_apt_update_post
+  failed_when: false
+- name: Warn if apt cache update did not fully succeed
+  when: haproxy_lb_apt_update_post.failed | default(false) or 'Failed to fetch' in (haproxy_lb_apt_update_post.stderr | default(''))
+  ansible.builtin.debug:
+    msg: >-
+      apt-get update reported errors; continuing with the existing cache.
+      If haproxy-awslc is not already installed this next step will fail.
+      Details: {{ haproxy_lb_apt_update_post.msg | default(haproxy_lb_apt_update_post.stderr | default('unknown')) }}
+- name: Install haproxy with AWS-LC
+  ansible.builtin.apt:
     pkg:
       - haproxy-awslc
 - name: Set cap_net_bind_service for QUIC UDP binding

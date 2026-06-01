@@ -1,7 +1,17 @@
 ---
-- name: Remove OD certbot
+- name: Update apt cache (tolerate broken third-party repos)
   ansible.builtin.apt:
     update_cache: true
+  register: acme_certificates_apt_update
+  failed_when: false
+- name: Warn if apt cache update did not fully succeed
+  when: acme_certificates_apt_update.failed | default(false) or 'Failed to fetch' in (acme_certificates_apt_update.stderr | default(''))
+  ansible.builtin.debug:
+    msg: >-
+      apt-get update reported errors; continuing with the existing cache.
+      Details: {{ acme_certificates_apt_update.msg | default(acme_certificates_apt_update.stderr | default('unknown')) }}
+- name: Remove OD certbot
+  ansible.builtin.apt:
     state: absent
     pkg:
       - certbot
