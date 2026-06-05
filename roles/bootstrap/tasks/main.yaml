@@ -3,6 +3,7 @@
   ansible.builtin.import_tasks: basics.yaml
 - name: Apply kernel hardening sysctls
   ansible.builtin.import_tasks: kernel_hardening.yaml
+  when: ansible_facts["virtualization_type"] != "lxc"
 - name: Disable automatic updates
   ansible.builtin.import_tasks: disable_auto_updates.yaml
   when: ansible_facts["distribution"] == "Ubuntu"
