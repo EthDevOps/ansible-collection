@@ -359,6 +359,35 @@ frontend http
 
 ### TCP Frontends
 
+{# Group TCP-exposed k8s services by ethquokkaops.io/balance-group. Services without a
+   balance-group are emitted one-per-service as before (legacy path, byte-identical
+   output). Services sharing a balance-group are collapsed into a single frontend +
+   backend pair so HAProxy sees N pod-pinned LoadBalancer IPs as one backend, enabling
+   `balance source` (or other algorithms) to hash agent IPs deterministically to a
+   specific pod. #}
+{% set tcp_groups = namespace(map={}, ungrouped=[]) %}
+{% for cluster in haproxy_lb_k8s_services %}
+{% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-tcp"] is defined %}
+{% set group = svc.metadata.annotations.get("ethquokkaops.io/balance-group") %}
+{% if group %}
+{% set key = cluster.item ~ "__" ~ group %}
+{% if key not in tcp_groups.map %}
+{% set _ = tcp_groups.map.update({key: {
+  "cluster": cluster.item,
+  "group": group,
+  "port": svc.metadata.annotations["ethquokkaops.io/expose-on-port"],
+  "balance": svc.metadata.annotations.get("ethquokkaops.io/balance", "roundrobin"),
+  "max_conn": svc.metadata.annotations.get("ethquokkaops.io/max-conn", "30"),
+  "services": []
+}}) %}
+{% endif %}
+{% set _ = tcp_groups.map[key].services.append(svc) %}
+{% else %}
+{% set _ = tcp_groups.ungrouped.append({"cluster": cluster.item, "svc": svc}) %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+
 {% for tun in haproxy_lb_tunnels %}
 frontend fe_{{ tun }}
     bind *:{{ haproxy_lb_tunnels[tun].port }}
@@ -368,17 +397,27 @@ frontend fe_{{ tun }}
     default_backend tcp_{{ tun }}
 {% endfor %}
 
-{% for cluster in haproxy_lb_k8s_services %}
-{% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-tcp"] is defined %}
+{% for item in tcp_groups.ungrouped %}
+{% set svc = item.svc %}
 
-frontend fe_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+frontend fe_{{ item.cluster }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     bind *:{{ svc.metadata.annotations["ethquokkaops.io/expose-on-port"] }}
     bind [::]:{{ svc.metadata.annotations["ethquokkaops.io/expose-on-port"] }} v6only
     mode tcp
     option tcplog
-    default_backend tcp_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    default_backend tcp_{{ item.cluster }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
 
 {% endfor %}
+
+{% for key, g in tcp_groups.map | dictsort %}
+
+frontend fe_{{ g.cluster }}_{{ g.group }}
+    bind *:{{ g.port }}
+    bind [::]:{{ g.port }} v6only
+    mode tcp
+    option tcplog
+    default_backend tcp_{{ g.cluster }}_{{ g.group }}
+
 {% endfor %}
 
 
@@ -655,19 +694,40 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
 {% endif %}
 {% endfor %}
 
-{% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-tcp"] is defined %}
-backend tcp_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+{% endfor %}{# legacy outer cluster loop close, retained for backward compatibility of any nested logic above #}
+
+{# Ungrouped TCP backends (legacy path, byte-identical to pre-balance-group behavior). #}
+{% for item in tcp_groups.ungrouped %}
+{% set svc = item.svc %}
+backend tcp_{{ item.cluster }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     mode tcp
     balance roundrobin
 
     default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('30') }} fall 3 rise 2
     server lb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip }}:{{ svc.metadata.annotations["ethquokkaops.io/service-port"] | default(svc.spec.ports[0].port) }}
-    {% set k8s_tcp_backend_name = 'tcp_' ~ cluster.item ~ '_' ~ svc.metadata.namespace ~ '_' ~ svc.metadata.name %}
+    {% set k8s_tcp_backend_name = 'tcp_' ~ item.cluster ~ '_' ~ svc.metadata.namespace ~ '_' ~ svc.metadata.name %}
     {% if haproxy_lb_backend_extra_config is defined and k8s_tcp_backend_name in haproxy_lb_backend_extra_config %}
     # Custom backend configuration
 {{ haproxy_lb_backend_extra_config[k8s_tcp_backend_name] | indent(4, first=True) }}
     {% endif %}
 {% endfor %}
+
+{# Grouped TCP backends: one backend per (cluster, balance-group) with N server lines,
+   one per member service. Balance algorithm comes from ethquokkaops.io/balance. #}
+{% for key, g in tcp_groups.map | dictsort %}
+backend tcp_{{ g.cluster }}_{{ g.group }}
+    mode tcp
+    balance {{ g.balance }}
+
+    default-server check maxconn {{ g.max_conn }} fall 3 rise 2
+    {% for svc in g.services %}
+    server lb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip }}:{{ svc.metadata.annotations["ethquokkaops.io/service-port"] | default(svc.spec.ports[0].port) }}
+    {% endfor %}
+    {% set k8s_tcp_backend_name = 'tcp_' ~ g.cluster ~ '_' ~ g.group %}
+    {% if haproxy_lb_backend_extra_config is defined and k8s_tcp_backend_name in haproxy_lb_backend_extra_config %}
+    # Custom backend configuration
+{{ haproxy_lb_backend_extra_config[k8s_tcp_backend_name] | indent(4, first=True) }}
+    {% endif %}
 {% endfor %}
 
 {% if haproxy_lb_tunnels is defined %}

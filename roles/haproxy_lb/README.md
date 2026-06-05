@@ -157,8 +157,50 @@ TCP passthrough for Kubernetes services. Configured via annotations on the same 
 | `ethquokkaops.io/expose-on-port` | Required. External port to listen on |
 | `ethquokkaops.io/service-port` | Optional. Backend port (defaults to first service port) |
 | `ethquokkaops.io/max-conn` | Optional. Max connections per server (default: 30) |
+| `ethquokkaops.io/balance-group` | Optional. Collapses multiple services into a single backend with N server lines. Used when one logical LB endpoint needs to load-balance across multiple per-pod LB Services (e.g. StatefulSet pods that hold per-pod local state and require sticky client routing). |
+| `ethquokkaops.io/balance` | Optional. HAProxy `balance` algorithm for the backend (e.g. `roundrobin`, `source`, `leastconn`). Defaults to `roundrobin`. Only consulted when `balance-group` is set; ungrouped backends always use `roundrobin`. |
 
-**Backend name format:** `tcp_{cluster}_{namespace}_{servicename}` (e.g., `tcp_prod_default_postgres`)
+**Backend name format:**
+- Without `balance-group`: `tcp_{cluster}_{namespace}_{servicename}` (e.g. `tcp_prod_default_postgres`)
+- With `balance-group`: `tcp_{cluster}_{group}` (e.g. `tcp_colo-k8s-mgmt_wazuh-worker-1514`). All grouped services must share the same `expose-on-port`; the first service's `max-conn` and `balance` annotations apply to the group.
+
+##### Example: pod-sticky agent traffic (Wazuh)
+
+Wazuh worker nodes keep per-agent state locally and do not synchronize it across the cluster, so agents must be sticky to one worker. Expose each StatefulSet pod via its own `LoadBalancer` Service (selector pinned to `statefulset.kubernetes.io/pod-name`), then collapse them into one HAProxy backend with `balance source` so each agent IP hashes deterministically to a specific worker:
+
+```yaml
+# Service for wazuh-manager-worker-0
+metadata:
+  annotations:
+    ethquokkaops.io/expose-tcp: "true"
+    ethquokkaops.io/expose-on-port: "1514"
+    ethquokkaops.io/max-conn: "500"
+    ethquokkaops.io/balance-group: "wazuh-worker-1514"
+    ethquokkaops.io/balance: "source"
+spec:
+  selector:
+    statefulset.kubernetes.io/pod-name: wazuh-manager-worker-0
+# Service for wazuh-manager-worker-1: same annotations, selector ...worker-1.
+```
+
+Produces:
+
+```
+frontend fe_colo-k8s-mgmt_wazuh-worker-1514
+    bind *:1514
+    bind [::]:1514 v6only
+    mode tcp
+    option tcplog
+    default_backend tcp_colo-k8s-mgmt_wazuh-worker-1514
+
+backend tcp_colo-k8s-mgmt_wazuh-worker-1514
+    mode tcp
+    balance source
+
+    default-server check maxconn 500 fall 3 rise 2
+    server lb_wazuh-manager-worker-0 <pod-0 LB IP>:1514
+    server lb_wazuh-manager-worker-1 <pod-1 LB IP>:1514
+```
 
 ### 4. Domain Groups (via `lb_hostvars`)
 
