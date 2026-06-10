@@ -42,8 +42,8 @@ defaults
     option  dontlog-normal
 
     timeout connect 5000
-    timeout client  50000
-    timeout server  50000
+    timeout client  300000
+    timeout server  300000
 
     errorfile 500 /etc/haproxy/errors/500.http
     errorfile 502 /etc/haproxy/errors/502.http
@@ -97,35 +97,6 @@ frontend http
     mode http
 
     default_backend default
-
-    # ACL function declarations for Rate Limits
-    #capture request  header Host len 20
-    #capture response header Location len 20
-
-    #acl is_abuse src_http_req_rate(Abuse) ge {{ haproxy_lb_rate_limit_per_min }}
-    #acl inc_abuse_cnt src_inc_gpc0(Abuse) gt 0  # Increments counter GPC0 (general purpose counter 0) by one when called/matched - Activates limiter
-    #acl abuse_cnt src_get_gpc0(Abuse) gt 0      # Query GPC0 for > 0 - checks on limiter
-
-    ### Rate limiter
-    #tcp-request connection track-sc0 src table Abuse
-    #tcp-request connection reject if abuse_cnt !{ src -f /etc/haproxy/allowlist.acl }
-
-    #http-request track-sc0 src table Abuse
-    #http-request reject if abuse_cnt !{ src -f /etc/haproxy/allowlist.acl }
-
-    # Tarpit ratelimited requests for 10s
-    #timeout tarpit 10s
-
-    #{% for item in haproxy_lb_rate_limit_targets %}
-
-    # Rate limiter ACL for {{ item.name }}
-    #acl ratehost_{{ item.name }} hdr(host) -i {{ item.domain }}
-    #acl ratehost_{{ item.name }} hdr(host) -i {{ item.domain }}:80
-    #acl ratehost_{{ item.name }} hdr(host) -i {{ item.domain }}:443
-    #http-request tarpit deny_status 429 if ratehost_{{ item.name }} is_abuse inc_abuse_cnt !{ src -f /etc/haproxy/allowlist.acl }
-    #{% endfor %}
-
-
     # HSTS (63072000 seconds)
     http-response set-header Strict-Transport-Security max-age=63072000
 
