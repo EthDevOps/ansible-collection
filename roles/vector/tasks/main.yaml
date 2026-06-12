@@ -59,9 +59,15 @@
     dest: /etc/vector/vector.yaml
   notify: Restart Vector
 - name: Ensure ACL package is installed
-  when: vector_use_openbao
   ansible.builtin.package:
     name: acl
+    state: present
+- name: Set ACL for vector on vector dir
+  ansible.posix.acl:
+    path: /etc/vector
+    entity: vector
+    etype: user
+    permissions: rx
     state: present
 # openbao-agent renders /etc/vector/vector.yaml via the template stanza in
 # bao_config.hcl. The stanza sets perms/group on each render (atomic
