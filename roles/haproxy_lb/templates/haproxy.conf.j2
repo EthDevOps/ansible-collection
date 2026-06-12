@@ -349,6 +349,7 @@ frontend http
   "port": svc.metadata.annotations["ethquokkaops.io/expose-on-port"],
   "balance": svc.metadata.annotations.get("ethquokkaops.io/balance", "roundrobin"),
   "max_conn": svc.metadata.annotations.get("ethquokkaops.io/max-conn", "30"),
+  "timeout": svc.metadata.annotations.get("ethquokkaops.io/timeout"),
   "services": []
 }}) %}
 {% endif %}
@@ -578,6 +579,11 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_
     # only keep clients in the connection queue for 1 minute
     timeout queue 60s
 
+    {% if svc.metadata.annotations["ethquokkaops.io/timeout"] is defined %}
+    timeout client {{ svc.metadata.annotations["ethquokkaops.io/timeout"] }}
+    timeout server {{ svc.metadata.annotations["ethquokkaops.io/timeout"] }}
+    {% endif %}
+
     http-request set-header X-Forwarded-Port %[dst_port]
     http-request add-header X-Forwarded-Proto https if { ssl_fc }
 
@@ -627,6 +633,11 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     # only keep clients in the connection queue for 1 minute
     timeout queue 60s
 
+    {% if svc.metadata.annotations["ethquokkaops.io/timeout"] is defined %}
+    timeout client {{ svc.metadata.annotations["ethquokkaops.io/timeout"] }}
+    timeout server {{ svc.metadata.annotations["ethquokkaops.io/timeout"] }}
+    {% endif %}
+
     http-request set-header X-Forwarded-Port %[dst_port]
     http-request add-header X-Forwarded-Proto https if { ssl_fc }
 
@@ -674,6 +685,10 @@ backend tcp_{{ item.cluster }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name
     mode tcp
     balance roundrobin
 
+    {% if svc.metadata.annotations["ethquokkaops.io/timeout"] is defined %}
+    timeout client {{ svc.metadata.annotations["ethquokkaops.io/timeout"] }}
+    timeout server {{ svc.metadata.annotations["ethquokkaops.io/timeout"] }}
+    {% endif %}
     default-server check maxconn {{ svc.metadata.annotations["ethquokkaops.io/max-conn"] | default('30') }} fall 3 rise 2
     server lb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip }}:{{ svc.metadata.annotations["ethquokkaops.io/service-port"] | default(svc.spec.ports[0].port) }}
     {% set k8s_tcp_backend_name = 'tcp_' ~ item.cluster ~ '_' ~ svc.metadata.namespace ~ '_' ~ svc.metadata.name %}
@@ -690,6 +705,10 @@ backend tcp_{{ g.cluster }}_{{ g.group }}
     mode tcp
     balance {{ g.balance }}
 
+    {% if g.timeout %}
+    timeout client {{ g.timeout }}
+    timeout server {{ g.timeout }}
+    {% endif %}
     default-server check maxconn {{ g.max_conn }} fall 3 rise 2
     {% for svc in g.services %}
     server lb_{{ svc.metadata.name }} {{ svc.status.loadBalancer.ingress[0].ip }}:{{ svc.metadata.annotations["ethquokkaops.io/service-port"] | default(svc.spec.ports[0].port) }}
