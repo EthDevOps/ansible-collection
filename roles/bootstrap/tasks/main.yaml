@@ -7,8 +7,6 @@
 - name: Disable automatic updates
   ansible.builtin.import_tasks: disable_auto_updates.yaml
   when: ansible_facts["distribution"] == "Ubuntu"
-- name: Setup Patchman
-  ansible.builtin.import_tasks: deploy_patchman.yaml
 - name: Setup User
   ansible.builtin.import_tasks: user.yaml
 - name: Setup SSHd
