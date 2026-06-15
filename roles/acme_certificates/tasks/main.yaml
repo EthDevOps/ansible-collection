@@ -59,6 +59,87 @@
     src: prepare-certs.sh.j2
     dest: /usr/local/bin/prepare-certs.sh
     mode: '0755'
+- name: Deploy unified Let's Encrypt account
+  when:
+    - acme_certificates_account is defined
+    - acme_certificates_account.account_hash | default('') | length > 0
+  vars:
+    _acme_account_dir: "/etc/letsencrypt/accounts/acme-v02.api.letsencrypt.org/directory/{{ acme_certificates_account.account_hash }}"
+  block:
+    - name: Ensure LE account directory tree exists
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+      loop:
+        - /etc/letsencrypt/accounts
+        - /etc/letsencrypt/accounts/acme-v02.api.letsencrypt.org
+        - /etc/letsencrypt/accounts/acme-v02.api.letsencrypt.org/directory
+        - "{{ _acme_account_dir }}"
+    - name: Deploy LE account regr.json
+      ansible.builtin.copy:
+        dest: "{{ _acme_account_dir }}/regr.json"
+        content: "{{ acme_certificates_account.regr_json }}"
+        owner: root
+        group: root
+        mode: '0600'
+      register: acme_certificates_account_regr
+    - name: Deploy LE account private_key.json
+      ansible.builtin.copy:
+        dest: "{{ _acme_account_dir }}/private_key.json"
+        content: "{{ acme_certificates_account.private_key_json }}"
+        owner: root
+        group: root
+        mode: '0600'
+      register: acme_certificates_account_privkey
+      no_log: true
+    - name: Deploy LE account meta.json
+      ansible.builtin.copy:
+        dest: "{{ _acme_account_dir }}/meta.json"
+        content: "{{ acme_certificates_account.meta_json }}"
+        owner: root
+        group: root
+        mode: '0600'
+      register: acme_certificates_account_meta
+    - name: Find non-canonical LE account directories
+      ansible.builtin.find:
+        paths: /etc/letsencrypt/accounts/acme-v02.api.letsencrypt.org/directory
+        file_type: directory
+        excludes: "{{ acme_certificates_account.account_hash }}"
+      register: acme_certificates_account_extras
+    - name: Remove non-canonical LE account directories
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ acme_certificates_account_extras.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      register: acme_certificates_account_extras_removed
+    - name: Find existing renewal configs
+      ansible.builtin.find:
+        paths: /etc/letsencrypt/renewal
+        patterns: "*.conf"
+      register: acme_certificates_renewal_configs
+    - name: Repoint renewal configs to canonical account hash
+      ansible.builtin.lineinfile:
+        path: "{{ item.path }}"
+        regexp: '^account = '
+        line: "account = {{ acme_certificates_account.account_hash }}"
+      loop: "{{ acme_certificates_renewal_configs.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      register: acme_certificates_renewal_repointed
+    - name: Force-renew all certs against canonical account
+      when: >-
+        acme_certificates_account_regr.changed
+        or acme_certificates_account_privkey.changed
+        or acme_certificates_account_meta.changed
+        or acme_certificates_account_extras_removed.changed
+        or (acme_certificates_renewal_repointed.results | default([]) | selectattr('changed') | list | length > 0)
+      ansible.builtin.command:
+        cmd: /usr/bin/certbot renew --force-renewal --post-hook /usr/local/bin/prepare-certs.sh
 - name: Check if domain has already a certificate
   check_mode: false
   ansible.builtin.stat:

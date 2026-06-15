@@ -10,3 +10,15 @@ acme_certificates_cert_domains:
     username: example
     password: example
     subdomain: example
+# Optional. When defined, deploys a shared Let's Encrypt account onto the host
+# so multiple hosts can issue certs from the same ACME account (required for
+# CAA accounturi= pinning across HA pairs). Reconciles existing renewal configs
+# to the canonical account_hash and force-renews any certs that were issued
+# under a different account.
+#
+# acme_certificates_account:
+#   account_hash: "<sha256 hex of the account JWK, i.e. the directory name under
+#                  /etc/letsencrypt/accounts/acme-v02.api.letsencrypt.org/directory/>"
+#   regr_json: "<full contents of regr.json>"
+#   private_key_json: "<full contents of private_key.json>"
+#   meta_json: "<full contents of meta.json>"
