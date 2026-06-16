@@ -1,0 +1,254 @@
+{#
+    Shared routing logic for the http and https frontends.
+
+    Parameter (set by the includer):
+        routing_filter_allow_http : bool
+            When true, only services that opt in to plain HTTP via:
+              - haproxy_lb_sites[<name>].allow_http
+              - K8s annotation ethquokkaops.io/allow-http: "true"
+              - domain-group svc.custom_fields.allow_http: "true"
+            are routed. All other services are skipped, so the surrounding
+            frontend can apply its default HTTP->HTTPS redirect.
+            When false (default), every service is routed normally.
+
+    Structured haproxy_lb_redirects always emit on both frontends so that
+    HTTP clients targeting legacy domains get redirected in a single hop.
+#}
+    {% set routing_filter_allow_http = routing_filter_allow_http | default(false) %}
+
+    # Structured Redirects (processed before backend routing)
+    {% if haproxy_lb_redirects is defined and haproxy_lb_redirects | length > 0 %}
+    {% for redirect in haproxy_lb_redirects %}
+    {% if redirect.src is defined %}
+    {% set redirect_name = redirect.src[0] | replace('.', '_') | replace('-', '_') %}
+    {% set safe_target = redirect.target | replace('#', '%%23') %}
+
+    # Redirect: {{ redirect.src | join(', ') }} -> {{ redirect.target }}
+    {% for src_domain in redirect.src %}
+    acl redir_{{ redirect_name }}_host hdr(host) -i {{ src_domain }}
+    acl redir_{{ redirect_name }}_host hdr(host) -i {{ src_domain }}:80
+    acl redir_{{ redirect_name }}_host hdr(host) -i {{ src_domain }}:443
+    {% endfor %}
+
+    {% if redirect.paths is defined %}
+    {% for path_redir in redirect.paths %}
+    acl redir_{{ redirect_name }}_path_{{ loop.index }} path {{ path_redir.path }}
+    {% set safe_path_target = path_redir.target | replace('#', '%%23') %}
+    {% if path_redir.target is match('^https?://') %}
+    http-request redirect code {{ redirect.code }} location {{ safe_path_target }} if redir_{{ redirect_name }}_host redir_{{ redirect_name }}_path_{{ loop.index }}
+    {% else %}
+    http-request redirect code {{ redirect.code }} location https://{{ safe_target }}{{ safe_path_target }} if redir_{{ redirect_name }}_host redir_{{ redirect_name }}_path_{{ loop.index }}
+    {% endif %}
+    {% endfor %}
+
+    # Catch-all for domain (no specific path match)
+    {% if redirect.preserve_uri is defined and redirect.preserve_uri %}
+    {% if redirect.target is match('^https?://') %}
+    http-request redirect code {{ redirect.code }} location {{ safe_target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
+    {% else %}
+    http-request redirect code {{ redirect.code }} location https://{{ safe_target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
+    {% endif %}
+    {% else %}
+    {% if redirect.target is match('^https?://') %}
+    http-request redirect code {{ redirect.code }} location {{ safe_target }} if redir_{{ redirect_name }}_host
+    {% else %}
+    http-request redirect code {{ redirect.code }} location https://{{ safe_target }} if redir_{{ redirect_name }}_host
+    {% endif %}
+    {% endif %}
+    {% else %}
+    # Simple domain redirect (no paths)
+    {% if redirect.preserve_uri is defined and redirect.preserve_uri %}
+    {% if redirect.target is match('^https?://') %}
+    http-request redirect code {{ redirect.code }} location {{ safe_target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
+    {% else %}
+    http-request redirect code {{ redirect.code }} location https://{{ safe_target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
+    {% endif %}
+    {% else %}
+    {% if redirect.target is match('^https?://') %}
+    http-request redirect code {{ redirect.code }} location {{ safe_target }} if redir_{{ redirect_name }}_host
+    {% else %}
+    http-request redirect code {{ redirect.code }} location https://{{ safe_target }} if redir_{{ redirect_name }}_host
+    {% endif %}
+    {% endif %}
+    {% endif %}
+
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+
+    {# Sort sites: those with path defined first (more specific routes) #}
+    {% set sites_with_path = [] %}
+    {% set sites_without_path = [] %}
+    {% for site in haproxy_lb_sites %}
+    {% if haproxy_lb_sites[site].path is defined %}
+    {% set _ = sites_with_path.append(site) %}
+    {% else %}
+    {% set _ = sites_without_path.append(site) %}
+    {% endif %}
+    {% endfor %}
+    {% set sorted_sites = sites_with_path + sites_without_path %}
+    {% for site in sorted_sites %}
+    {% if (not routing_filter_allow_http) or (haproxy_lb_sites[site].allow_http | default(false)) %}
+    # START SITE: {{ site }}
+    {% for domain in haproxy_lb_sites[site].domains %}
+    acl host_{{ site }} hdr(host) -i {{ domain }}
+    acl host_{{ site }} hdr(host) -i {{ domain }}:80
+    acl host_{{ site }} hdr(host) -i {{ domain }}:443
+    {% if routing_filter_allow_http %}
+    acl is_allow_http hdr(host) -i {{ domain }}
+    {% endif %}
+    {% endfor %}
+    {% if haproxy_lb_sites[site].path is defined %}
+    acl path_{{ site }} path -i -m beg {{ haproxy_lb_sites[site].path }}
+    {% endif %}
+    {% if (haproxy_lb_cache_enabled | default(false)) and haproxy_lb_sites[site].use_cache is defined and haproxy_lb_sites[site].use_cache == 'true' %}
+    http-request cache-use global_cache if host_{{ site }}
+    http-response cache-store global_cache if host_{{ site }}
+    {% endif %}
+
+    use_backend {{ site }} if host_{{ site }} {% if haproxy_lb_sites[site].path is defined %} path_{{ site }}{% endif %}
+
+    # END SITE: {{ site }}
+
+    {% endif %}
+   {% endfor %}
+
+    #### K8S services
+
+   {% for cluster in haproxy_lb_k8s_services %}
+    ## k8s cluster: {{ cluster.item }}
+   {# Sort services: those with path annotations first (more specific routes) #}
+   {% set services_with_path = [] %}
+   {% set services_without_path = [] %}
+
+   {% for svc in cluster.resources %}
+   {% if svc.metadata.annotations["ethquokkaops.io/expose-public"] is defined and (svc.metadata.annotations["ethquokkaops.io/domain"] is defined or svc.metadata.annotations["ethquokkaops.io/domain-port-map"] is defined) %}
+   {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
+   {% set _ = services_with_path.append(svc) %}
+   {% else %}
+   {% set _ = services_without_path.append(svc) %}
+   {% endif %}
+   {% endif %}
+   {% endfor %}
+
+
+   {% set sorted_services = services_with_path + services_without_path %}
+   {% for svc in sorted_services %}
+   {% if (not routing_filter_allow_http) or (svc.metadata.annotations["ethquokkaops.io/allow-http"] is defined and svc.metadata.annotations["ethquokkaops.io/allow-http"] == "true") %}
+    # START K8s SITE: {{ cluster.item }} => {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    {% if svc.metadata.annotations["ethquokkaops.io/domain-port-map"] is defined %}
+    {# Multi-port mapping: each port routes to a specific domain #}
+    {% set port_mappings = svc.metadata.annotations["ethquokkaops.io/domain-port-map"].split(',') | map('trim') | list %}
+    {% for mapping in port_mappings %}
+    {% set portname = mapping.split(':')[0] | trim %}
+    {% set domain = mapping.split(':')[1] | trim %}
+    # Multi-port mapping: {{ portname }} -> {{ domain }}
+    acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} hdr_dom(host) -i {{ domain }}
+    {% if routing_filter_allow_http %}
+    acl is_allow_http hdr_dom(host) -i {{ domain }}
+    {% endif %}
+    {% if svc.metadata.annotations["ethquokkaops.io/auth-group"] is defined %}
+    http-request auth if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} !{ http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) }
+    {% endif %}
+    {% if svc.metadata.annotations["ethquokkaops.io/internal-only"] is defined %}
+    http-request deny if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} !{ src 10.128.0.0/9 }
+    {% endif %}
+    {% if (haproxy_lb_cache_enabled | default(false)) and svc.metadata.annotations["ethquokkaops.io/use_cache"] is defined and svc.metadata.annotations["ethquokkaops.io/use_cache"] == 'true' %}
+    http-request cache-use global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
+    http-response cache-store global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
+    {% endif %}
+    use_backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
+
+    {% endfor %}
+    {% else %}
+    {# Standard single-domain routing #}
+    {% set domains = svc.metadata.annotations["ethquokkaops.io/domain"].split(',') | map('trim') | list %}
+    {% for domain in domains %}
+    {% if svc.metadata.annotations["ethquokkaops.io/match-exact"] is defined %}
+    acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr(host) -i {{ domain }}
+    {% if routing_filter_allow_http %}
+    acl is_allow_http hdr(host) -i {{ domain }}
+    {% endif %}
+    {% else %}
+    acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr_dom(host) -i {{ domain }}
+    {% if routing_filter_allow_http %}
+    acl is_allow_http hdr_dom(host) -i {{ domain }}
+    {% endif %}
+    {% if svc.metadata.annotations["ethquokkaops.io/allow-subdomains"] is defined %}
+    acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr_dom(host) -i -m end .{{ domain }}
+    {% if routing_filter_allow_http %}
+    acl is_allow_http hdr_dom(host) -i -m end .{{ domain }}
+    {% endif %}
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+    {% if svc.metadata.annotations["ethquokkaops.io/auth-group"] is defined %}
+    http-request auth if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} !{ http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) }
+    {% endif %}
+
+    {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
+    {% set paths = svc.metadata.annotations["ethquokkaops.io/path"].split(',') | map('trim') | list %}
+    {% for path in paths %}
+    {% set route_path = path.split(':')[0] | trim %}
+    acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ route_path }}
+    {% endfor %}
+    {% endif %}
+
+    {% if svc.metadata.annotations["ethquokkaops.io/internal-only"] is defined %}
+    http-request deny if { hdr(host) -i {{ domain }} } !{ src 10.128.0.0/9 }
+    {% endif %}
+    {% if (haproxy_lb_cache_enabled | default(false)) and svc.metadata.annotations["ethquokkaops.io/use_cache"] is defined and svc.metadata.annotations["ethquokkaops.io/use_cache"] == 'true' %}
+    http-request cache-use global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    http-response cache-store global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+    {% endif %}
+
+    use_backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %} path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}{% endif %}
+
+    {% endif %}
+    # END SITE: {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
+
+   {% endif %}
+   {% endfor %}
+   {% endfor %}
+
+   {# Generate ACLs and routing for each domain group.
+      `domain_groups` is built once at the top of haproxy.conf.j2 so both
+      frontends and the backend section share the same populated dict. #}
+   {% for domain, services in domain_groups.items() %}
+   {% set first_service = services[0] %}
+   {% set backend_name = 'lb_' + (domain | replace('.', '_') | replace('-', '_') | replace('*','_')) %}
+   {% if (not routing_filter_allow_http) or (first_service.svc.custom_fields.allow_http is defined and first_service.svc.custom_fields.allow_http == "true") %}
+
+    {% if domain.startswith('*.') %}
+    {# Wildcard domain - match subdomains using suffix matching #}
+    {% set base_domain = domain[2:] %}
+
+    acl host_{{ backend_name }} hdr_dom(host) -i -m end .{{ base_domain }}
+    {# Optionally also match the base domain itself #}
+    acl host_{{ backend_name }} hdr_dom(host) -i {{ base_domain }}
+    {% if routing_filter_allow_http %}
+    acl is_allow_http hdr_dom(host) -i -m end .{{ base_domain }}
+    acl is_allow_http hdr_dom(host) -i {{ base_domain }}
+    {% endif %}
+    {% else %}
+    {# Exact domain match #}
+    acl host_{{ backend_name }} hdr_dom(host) -i {{ domain }}
+    {% if routing_filter_allow_http %}
+    acl is_allow_http hdr_dom(host) -i {{ domain }}
+    {% endif %}
+    {% endif %}
+
+    {% if first_service.svc.custom_fields.internal_only is defined and first_service.svc.custom_fields.internal_only == "true" %}
+    http-request deny if { hdr(host) -i {{ domain }} } !{ src 10.128.0.0/9 }
+    {% endif %}
+
+    {% if first_service.svc.custom_fields.expose_auth is defined and first_service.svc.custom_fields.expose_auth != "none" and first_service.svc.custom_fields.expose_auth != "" and first_service.svc.custom_fields.expose_auth is not none %}
+    http-request auth if host_{{ backend_name }} !{ http_auth({{ first_service.svc.custom_fields.expose_auth }}) }
+    {% endif %}
+
+    use_backend {{ backend_name }} if host_{{ backend_name }}
+
+    # END DOMAIN GROUP: {{ domain }}
+
+   {% endif %}
+   {% endfor %}

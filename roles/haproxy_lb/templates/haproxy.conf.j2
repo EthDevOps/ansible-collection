@@ -80,23 +80,66 @@ frontend prometheus
     no log
     http-request use-service prometheus-exporter if { path /metrics }
 
+{# Build the domain-group map once at the top so both frontends and the
+   backend section below see the same populated dict. #}
 {% set domain_groups = {} %}
+{% if haproxy_lb_sites and haproxy_lb_sites|length > 0 %}
+{% for host, hostvars in lb_hostvars.items() %}
+{% for svc in hostvars.services if svc.custom_fields.expose_mode is defined and svc.custom_fields.expose_mode == "l7" %}
+{% for domain in svc.custom_fields.expose_domain.split(',') | map('trim') | list %}
+{% if domain not in domain_groups %}
+{% set _ = domain_groups.update({domain: []}) %}
+{% endif %}
+{% set _ = domain_groups[domain].append({'host': host, 'svc': svc, 'hostvars': hostvars}) %}
+{% endfor %}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
 {% if haproxy_lb_sites and haproxy_lb_sites|length > 0 %}
 frontend http
     bind *:80
     bind [::]:80 v6only
+    mode http
 
-    {% if not haproxy_lb_sites_insecure %}
+    {% if haproxy_lb_log_http_requests | default(true) %}
+    # Discovery logging: log every request hitting :80 so we can see which
+    # clients still use HTTP before enabling haproxy_lb_force_https.
+    no option dontlog-normal
+    {% endif %}
+
+    # Capture request URI for redirect preservation
+    http-request capture path len 512
+
+    {% if (haproxy_lb_force_https | default(false)) and (not haproxy_lb_sites_insecure) %}
+    {# Route only services that opt in to plain HTTP; everything else falls
+       through to the default scheme redirect below. The include populates
+       `is_allow_http` with each opt-in service's host patterns; the baseline
+       below keeps the ACL defined even when no services opt in. #}
+    acl is_allow_http always_false
+    {% set routing_filter_allow_http = true %}
+    {% include '_http_routing.j2' %}
+
+    http-request redirect scheme https code 301 unless is_allow_http
+    {% else %}
+    {# Pre-flip mode: route HTTP the same as HTTPS so existing clients keep
+       working while we observe logs. #}
+    {% set routing_filter_allow_http = false %}
+    {% include '_http_routing.j2' %}
+    {% endif %}
+
+    default_backend default
+
+{% if not haproxy_lb_sites_insecure %}
+frontend https
     bind *:443 ssl crt /etc/certificates/ alpn h2,http/1.1
     bind [::]:443 v6only ssl crt /etc/certificates/ alpn h2,http/1.1
     {% if haproxy_lb_quic_enabled | default(false) %}
     bind quic4@:443 ssl crt /etc/certificates/ alpn h3
     bind quic6@:443 v6only ssl crt /etc/certificates/ alpn h3
     {% endif %}
-    {% endif %}
     mode http
 
-    default_backend default
     # HSTS (63072000 seconds)
     http-response set-header Strict-Transport-Security max-age=63072000
 
@@ -108,224 +151,11 @@ frontend http
     # Capture request URI for redirect preservation
     http-request capture path len 512
 
-    # Structured Redirects (processed before backend routing)
-    {% if haproxy_lb_redirects is defined and haproxy_lb_redirects | length > 0 %}
-    {% for redirect in haproxy_lb_redirects %}
-    {% if redirect.src is defined %}
-    {% set redirect_name = redirect.src[0] | replace('.', '_') | replace('-', '_') %}
-    {% set safe_target = redirect.target | replace('#', '%%23') %}
+    {% set routing_filter_allow_http = false %}
+    {% include '_http_routing.j2' %}
 
-    # Redirect: {{ redirect.src | join(', ') }} -> {{ redirect.target }}
-    {% for src_domain in redirect.src %}
-    acl redir_{{ redirect_name }}_host hdr(host) -i {{ src_domain }}
-    acl redir_{{ redirect_name }}_host hdr(host) -i {{ src_domain }}:80
-    acl redir_{{ redirect_name }}_host hdr(host) -i {{ src_domain }}:443
-    {% endfor %}
-
-    {% if redirect.paths is defined %}
-    {% for path_redir in redirect.paths %}
-    acl redir_{{ redirect_name }}_path_{{ loop.index }} path {{ path_redir.path }}
-    {% set safe_path_target = path_redir.target | replace('#', '%%23') %}
-    {% if path_redir.target is match('^https?://') %}
-    http-request redirect code {{ redirect.code }} location {{ safe_path_target }} if redir_{{ redirect_name }}_host redir_{{ redirect_name }}_path_{{ loop.index }}
-    {% else %}
-    http-request redirect code {{ redirect.code }} location https://{{ safe_target }}{{ safe_path_target }} if redir_{{ redirect_name }}_host redir_{{ redirect_name }}_path_{{ loop.index }}
-    {% endif %}
-    {% endfor %}
-
-    # Catch-all for domain (no specific path match)
-    {% if redirect.preserve_uri is defined and redirect.preserve_uri %}
-    {% if redirect.target is match('^https?://') %}
-    http-request redirect code {{ redirect.code }} location {{ safe_target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
-    {% else %}
-    http-request redirect code {{ redirect.code }} location https://{{ safe_target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
-    {% endif %}
-    {% else %}
-    {% if redirect.target is match('^https?://') %}
-    http-request redirect code {{ redirect.code }} location {{ safe_target }} if redir_{{ redirect_name }}_host
-    {% else %}
-    http-request redirect code {{ redirect.code }} location https://{{ safe_target }} if redir_{{ redirect_name }}_host
-    {% endif %}
-    {% endif %}
-    {% else %}
-    # Simple domain redirect (no paths)
-    {% if redirect.preserve_uri is defined and redirect.preserve_uri %}
-    {% if redirect.target is match('^https?://') %}
-    http-request redirect code {{ redirect.code }} location {{ safe_target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
-    {% else %}
-    http-request redirect code {{ redirect.code }} location https://{{ safe_target }}%[capture.req.uri] if redir_{{ redirect_name }}_host
-    {% endif %}
-    {% else %}
-    {% if redirect.target is match('^https?://') %}
-    http-request redirect code {{ redirect.code }} location {{ safe_target }} if redir_{{ redirect_name }}_host
-    {% else %}
-    http-request redirect code {{ redirect.code }} location https://{{ safe_target }} if redir_{{ redirect_name }}_host
-    {% endif %}
-    {% endif %}
-    {% endif %}
-
-    {% endif %}
-    {% endfor %}
-    {% endif %}
-
-    {# Sort sites: those with path defined first (more specific routes) #}
-    {% set sites_with_path = [] %}
-    {% set sites_without_path = [] %}
-    {% for site in haproxy_lb_sites %}
-    {% if haproxy_lb_sites[site].path is defined %}
-    {% set _ = sites_with_path.append(site) %}
-    {% else %}
-    {% set _ = sites_without_path.append(site) %}
-    {% endif %}
-    {% endfor %}
-    {% set sorted_sites = sites_with_path + sites_without_path %}
-    {% for site in sorted_sites %}
-    # START SITE: {{ site }}
-    {% for domain in haproxy_lb_sites[site].domains %}
-    acl host_{{ site }} hdr(host) -i {{ domain }}
-    acl host_{{ site }} hdr(host) -i {{ domain }}:80
-    acl host_{{ site }} hdr(host) -i {{ domain }}:443
-    {% endfor %}
-    {% if haproxy_lb_sites[site].path is defined %}
-    acl path_{{ site }} path -i -m beg {{ haproxy_lb_sites[site].path }}
-    {% endif %}
-    {% if (haproxy_lb_cache_enabled | default(false)) and haproxy_lb_sites[site].use_cache is defined and haproxy_lb_sites[site].use_cache == 'true' %}
-    http-request cache-use global_cache if host_{{ site }}
-    http-response cache-store global_cache if host_{{ site }}
-    {% endif %}
-
-    use_backend {{ site }} if host_{{ site }} {% if haproxy_lb_sites[site].path is defined %} path_{{ site }}{% endif %}
-
-    # END SITE: {{ site }}
-
-   {% endfor %}
-
-    #### K8S services
-
-   {% for cluster in haproxy_lb_k8s_services %}
-    ## k8s cluster: {{ cluster.item }}
-   {# Sort services: those with path annotations first (more specific routes) #}
-   {% set services_with_path = [] %}
-   {% set services_without_path = [] %}
-
-   {% for svc in cluster.resources %}
-   {% if svc.metadata.annotations["ethquokkaops.io/expose-public"] is defined and (svc.metadata.annotations["ethquokkaops.io/domain"] is defined or svc.metadata.annotations["ethquokkaops.io/domain-port-map"] is defined) %}
-   {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
-   {% set _ = services_with_path.append(svc) %}
-   {% else %}
-   {% set _ = services_without_path.append(svc) %}
-   {% endif %}
-   {% endif %}
-   {% endfor %}
-
-
-   {% set sorted_services = services_with_path + services_without_path %}
-   {% for svc in sorted_services %}
-    # START K8s SITE: {{ cluster.item }} => {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
-    {% if svc.metadata.annotations["ethquokkaops.io/domain-port-map"] is defined %}
-    {# Multi-port mapping: each port routes to a specific domain #}
-    {% set port_mappings = svc.metadata.annotations["ethquokkaops.io/domain-port-map"].split(',') | map('trim') | list %}
-    {% for mapping in port_mappings %}
-    {% set portname = mapping.split(':')[0] | trim %}
-    {% set domain = mapping.split(':')[1] | trim %}
-    # Multi-port mapping: {{ portname }} -> {{ domain }}
-    acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} hdr_dom(host) -i {{ domain }}
-    {% if svc.metadata.annotations["ethquokkaops.io/auth-group"] is defined %}
-    http-request auth if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} !{ http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) }
-    {% endif %}
-    {% if svc.metadata.annotations["ethquokkaops.io/internal-only"] is defined %}
-    http-request deny if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} !{ src 10.128.0.0/9 }
-    {% endif %}
-    {% if (haproxy_lb_cache_enabled | default(false)) and svc.metadata.annotations["ethquokkaops.io/use_cache"] is defined and svc.metadata.annotations["ethquokkaops.io/use_cache"] == 'true' %}
-    http-request cache-use global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
-    http-response cache-store global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
-    {% endif %}
-    use_backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
-
-    {% endfor %}
-    {% else %}
-    {# Standard single-domain routing #}
-    {% set domains = svc.metadata.annotations["ethquokkaops.io/domain"].split(',') | map('trim') | list %}
-    {% for domain in domains %}
-    {% if svc.metadata.annotations["ethquokkaops.io/match-exact"] is defined %}
-    acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr(host) -i {{ domain }}
-    {% else %}
-    acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr_dom(host) -i {{ domain }}
-    {% if svc.metadata.annotations["ethquokkaops.io/allow-subdomains"] is defined %}
-    acl host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} hdr_dom(host) -i -m end .{{ domain }}
-    {% endif %}
-    {% endif %}
-    {% endfor %}
-    {% if svc.metadata.annotations["ethquokkaops.io/auth-group"] is defined %}
-    http-request auth if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} !{ http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) }
-    {% endif %}
-
-    {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
-    {% set paths = svc.metadata.annotations["ethquokkaops.io/path"].split(',') | map('trim') | list %}
-    {% for path in paths %}
-    {% set route_path = path.split(':')[0] | trim %}
-    acl path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} path -i -m beg {{ route_path }}
-    {% endfor %}
-    {% endif %}
-
-    {% if svc.metadata.annotations["ethquokkaops.io/internal-only"] is defined %}
-    http-request deny if { hdr(host) -i {{ domain }} } !{ src 10.128.0.0/9 }
-    {% endif %}
-    {% if (haproxy_lb_cache_enabled | default(false)) and svc.metadata.annotations["ethquokkaops.io/use_cache"] is defined and svc.metadata.annotations["ethquokkaops.io/use_cache"] == 'true' %}
-    http-request cache-use global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
-    http-response cache-store global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
-    {% endif %}
-
-    use_backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %} path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}{% endif %}
-
-    {% endif %}
-    # END SITE: {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
-
-   {% endfor %}
-   {% endfor %}
-   {# Group services by domain for load balancing #}
-   {% for host, hostvars in lb_hostvars.items() %}
-   {% for svc in hostvars.services if svc.custom_fields.expose_mode is defined and svc.custom_fields.expose_mode == "l7" %}
-   {% set domains = svc.custom_fields.expose_domain.split(',') | map('trim') | list %}
-   {% for domain in domains %}
-   {% if domain not in domain_groups %}
-   {% set _ = domain_groups.update({domain: []}) %}
-   {% endif %}
-   {% set _ = domain_groups[domain].append({'host': host, 'svc': svc, 'hostvars': hostvars}) %}
-   {% endfor %}
-   {% endfor %}
-   {% endfor %}
-
-   {# Generate ACLs and routing for each domain group #}
-   {% for domain, services in domain_groups.items() %}
-   {% set first_service = services[0] %}
-   {% set backend_name = 'lb_' + (domain | replace('.', '_') | replace('-', '_') | replace('*','_')) %}
-
-    {% if domain.startswith('*.') %}
-    {# Wildcard domain - match subdomains using suffix matching #}
-    {% set base_domain = domain[2:] %}
-
-    acl host_{{ backend_name }} hdr_dom(host) -i -m end .{{ base_domain }}
-    {# Optionally also match the base domain itself #}
-    acl host_{{ backend_name }} hdr_dom(host) -i {{ base_domain }}
-    {% else %}
-    {# Exact domain match #}
-    acl host_{{ backend_name }} hdr_dom(host) -i {{ domain }}
-    {% endif %}
-
-    {% if first_service.svc.custom_fields.internal_only is defined and first_service.svc.custom_fields.internal_only == "true" %}
-    http-request deny if { hdr(host) -i {{ domain }} } !{ src 10.128.0.0/9 }
-    {% endif %}
-
-    {% if first_service.svc.custom_fields.expose_auth is defined and first_service.svc.custom_fields.expose_auth != "none" and first_service.svc.custom_fields.expose_auth != "" and first_service.svc.custom_fields.expose_auth is not none %}
-    http-request auth if host_{{ backend_name }} !{ http_auth({{ first_service.svc.custom_fields.expose_auth }}) }
-    {% endif %}
-
-    use_backend {{ backend_name }} if host_{{ backend_name }}
-
-    # END DOMAIN GROUP: {{ domain }}
-
-   {% endfor %}
+    default_backend default
+{% endif %}
 {% endif %}
 
 ### TCP Frontends
@@ -399,12 +229,6 @@ frontend fe_{{ g.cluster }}_{{ g.group }}
 
 backend Abuse
     stick-table type ip size 100K expire 30m store gpc0,http_req_rate(60s)
-
-# Certbot backend
-# Contains certbot stand-alone webserver
-backend backend-certbot
-    mode http
-    server certbot 127.0.0.1:7080
 
 backend default
     balance roundrobin

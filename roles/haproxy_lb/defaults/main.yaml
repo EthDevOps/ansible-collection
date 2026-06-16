@@ -21,3 +21,13 @@ haproxy_lb_k8s_services: []
 haproxy_lb_backend_extra_config: {}
 haproxy_lb_quic_enabled: false
 haproxy_lb_cache_enabled: false
+# When true, the :80 frontend redirects HTTP -> HTTPS (301) for any service
+# that does not have allow_http: true (or ethquokkaops.io/allow-http: "true"
+# for K8s, custom_fields.allow_http for domain-group services).
+# Leave off until you have observed HTTP traffic logs to know which services
+# need the override.
+haproxy_lb_force_https: false
+# When true, the :80 frontend logs every request (overrides the global
+# `dontlog-normal`). Used to discover which clients are still hitting HTTP
+# before enabling haproxy_lb_force_https.
+haproxy_lb_log_http_requests: true

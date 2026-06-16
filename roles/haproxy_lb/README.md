@@ -18,6 +18,23 @@ Default variables are defined in [defaults/main.yaml](defaults/main.yaml).
 | `haproxy_lb_sites_insecure` | `false` | If `true`, disables HTTPS binding on port 443 |
 | `haproxy_lb_stats_user` | `user` | Username for HAProxy stats page |
 | `haproxy_lb_stats_password` | `somepassword` | Password for HAProxy stats page |
+| `haproxy_lb_force_https` | `false` | If `true`, the `:80` frontend redirects HTTP→HTTPS (301) for any service that does not set `allow_http`. Leave off until you've observed which clients still need plain HTTP (see `haproxy_lb_log_http_requests`). |
+| `haproxy_lb_log_http_requests` | `true` | If `true`, the `:80` frontend logs every request (overrides the global `dontlog-normal`). Use during the discovery phase to inventory HTTP clients before flipping `haproxy_lb_force_https` on. |
+
+#### HTTP vs HTTPS frontends
+
+The role emits two separate frontends:
+
+- `frontend http` on `:80` — handles plain HTTP requests. When `haproxy_lb_force_https: true`, routes only services with `allow_http: true` and 301s everything else to HTTPS. When `false`, routes all services on HTTP too (default during discovery).
+- `frontend https` on `:443` — handles TLS-terminated requests with HSTS and (optionally) HTTP/3.
+
+Per-service opt-out from the HTTPS redirect:
+
+- **Static sites**: set `allow_http: true` on the site.
+- **K8s HTTP services**: set annotation `ethquokkaops.io/allow-http: "true"`.
+- **Domain-group services**: set `custom_fields.allow_http: "true"`.
+
+A service with `allow_http` set is served on both HTTP and HTTPS. Other services are only reachable over HTTPS once `haproxy_lb_force_https` is enabled.
 
 ### Cluster Definitions
 
@@ -66,6 +83,7 @@ haproxy_lb_sites:
     http2: true                   # Optional, enable HTTP/2 to backend
     max_conn: 500                 # Optional, max connections per server (default: 500)
     balance_mode: backup          # Optional, "backup" uses first available server, others as backup
+    allow_http: true              # Optional, also serve this site on plain HTTP (exempt from haproxy_lb_force_https redirect)
 ```
 
 **Backend name format:** Site name (e.g., `myapp`)
@@ -110,6 +128,7 @@ haproxy_lb_k8s_services:
 | `ethquokkaops.io/ssl-backend` | Optional. Use HTTPS to backend |
 | `ethquokkaops.io/http2-backend` | Optional. Enable HTTP/2 to backend |
 | `ethquokkaops.io/max-conn` | Optional. Max connections per server (default: 500) |
+| `ethquokkaops.io/allow-http` | Optional. `"true"` exempts the service from the global HTTPS redirect (`haproxy_lb_force_https`) and routes plain HTTP requests to the same backend. |
 
 **Backend name format:** `{cluster}_{namespace}_{servicename}` (e.g., `prod_default_myservice`)
 
@@ -223,6 +242,7 @@ lb_hostvars:
           expose_auth: admin_users      # Optional, basic auth group
           internal_only: "true"         # Optional, restrict to internal IPs
           balance_mode: backup          # Optional, primary/backup mode
+          allow_http: "true"            # Optional, exempt from haproxy_lb_force_https redirect
 ```
 
 Multiple hosts with services on the same domain are automatically grouped into a single backend with round-robin load balancing.
