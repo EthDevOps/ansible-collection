@@ -30,6 +30,10 @@ global
     tune.ssl.default-dh-param 2048
 
     {% if haproxy_lb_quic_enabled | default(false) %}
+    # Preserve cap_net_bind_service across uid switch so the haproxy worker
+    # can bind QUIC UDP sockets on privileged ports (443) after dropping
+    # privileges to the haproxy user.
+    setcap cap_net_bind_service
     # QUIC DDoS protection: force Retry token exchange above threshold
     tune.quic.retry-threshold 100
     {% endif %}
