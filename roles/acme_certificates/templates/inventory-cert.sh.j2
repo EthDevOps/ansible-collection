@@ -1,0 +1,30 @@
+#!/bin/bash
+set -u
+CERT="${RENEWED_LINEAGE:?RENEWED_LINEAGE not set}/cert.pem"
+
+fp=$(openssl x509 -in "$CERT" -noout -fingerprint -sha1 | sed 's/.*=//;s/://g' | tr A-Z a-z)
+serial=$(openssl x509 -in "$CERT" -noout -serial | sed 's/.*=//')
+nb=$(date -d "$(openssl x509 -in "$CERT" -noout -startdate | sed 's/.*=//')" +%s)
+na=$(date -d "$(openssl x509 -in "$CERT" -noout -enddate   | sed 's/.*=//')" +%s)
+sans=$(openssl x509 -in "$CERT" -noout -ext subjectAltName \
+        | sed -n 's/.*DNS://p' | tr ',' '\n' | sed 's/^ *//' \
+        | jq -R . | jq -s .)
+
+payload=$(jq -n \
+  --arg     fp     "$fp" \
+  --arg     serial "$serial" \
+  --argjson sans   "$sans" \
+  --argjson nb     "$nb" \
+  --argjson na     "$na" \
+  --arg     source '{{ acme_certificates_inventory_source }}' \
+  --argjson at     "$(date +%s)" \
+  '{fingerprint_sha1:$fp, serial:$serial, sans:$sans,
+    not_before:$nb, not_after:$na, source:$source, added_at:$at}')
+
+if ! curl -fsS -X POST '{{ acme_certificates_inventory_url }}' \
+     -H 'Authorization: Bearer {{ acme_certificates_inventory_token }}' \
+     -H 'Content-Type: application/json' \
+     -d "$payload" >/dev/null; then
+  logger -t acme-inventory "inventory POST failed for $RENEWED_LINEAGE"
+fi
+exit 0

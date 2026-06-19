@@ -20,6 +20,11 @@
   ansible.builtin.apt:
     pkg:
       - snapd
+- name: Install jq for cert inventory deploy hook
+  when: acme_certificates_inventory_url | length > 0
+  ansible.builtin.apt:
+    pkg:
+      - jq
 - name: Enable and start snapd socket
   ansible.builtin.systemd:
     name: snapd.socket
@@ -59,6 +64,15 @@
     src: prepare-certs.sh.j2
     dest: /usr/local/bin/prepare-certs.sh
     mode: '0755'
+- name: Generate cert inventory deploy hook
+  when: acme_certificates_inventory_url | length > 0
+  ansible.builtin.template:
+    src: inventory-cert.sh.j2
+    dest: /usr/local/bin/inventory-cert.sh
+    owner: root
+    group: root
+    mode: '0700'
+  no_log: true
 - name: Deploy unified Let's Encrypt account
   when:
     - acme_certificates_account is defined
@@ -139,7 +153,10 @@
         or acme_certificates_account_extras_removed.changed
         or (acme_certificates_renewal_repointed.results | default([]) | selectattr('changed') | list | length > 0)
       ansible.builtin.command:
-        cmd: /usr/bin/certbot renew --force-renewal --post-hook /usr/local/bin/prepare-certs.sh
+        cmd: >-
+          /usr/bin/certbot renew --force-renewal
+          --post-hook /usr/local/bin/prepare-certs.sh
+          {% if acme_certificates_inventory_url | length > 0 %}--deploy-hook /usr/local/bin/inventory-cert.sh{% endif %}
 - name: Check if domain has already a certificate
   check_mode: false
   ansible.builtin.stat:
@@ -178,6 +195,7 @@
       --preferred-challenges dns
       {% if item.0.stat.exists %}--force-renewal{% endif %}
       {% if acme_certificates_profile == 'shortlived' %}--preferred-profile shortlived{% endif %}
+      {% if acme_certificates_inventory_url | length > 0 %}--deploy-hook /usr/local/bin/inventory-cert.sh{% endif %}
       -d {{ item.0.item.domain }} -d '*.{{ item.0.item.domain }}'
 - name: Prepare haproxy certs
   ansible.builtin.command:
@@ -187,4 +205,4 @@
     name: renew certificates
     minute: "{{ ansible_play_hosts.index(inventory_hostname) * 10 }}"
     hour: "*/{{ acme_certificates_renewal_hours }}"
-    job: "/usr/bin/certbot renew --post-hook '/usr/local/bin/prepare-certs.sh'"
+    job: "/usr/bin/certbot renew --post-hook '/usr/local/bin/prepare-certs.sh'{% if acme_certificates_inventory_url | length > 0 %} --deploy-hook '/usr/local/bin/inventory-cert.sh'{% endif %}"

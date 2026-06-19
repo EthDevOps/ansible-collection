@@ -10,6 +10,12 @@ acme_certificates_cert_domains:
     username: example
     password: example
     subdomain: example
+# Cert inventory integration. When acme_certificates_inventory_url is set,
+# a certbot --deploy-hook will POST metadata about each newly issued or
+# renewed cert to this endpoint. Failures are logged but do not block renewal.
+acme_certificates_inventory_url: ""
+acme_certificates_inventory_token: ""
+acme_certificates_inventory_source: letsencrypt
 # Optional. When defined, deploys a shared Let's Encrypt account onto the host
 # so multiple hosts can issue certs from the same ACME account (required for
 # CAA accounturi= pinning across HA pairs). Reconciles existing renewal configs
