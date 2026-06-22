@@ -44,7 +44,7 @@
     src: /snap/bin/certbot
     dest: /usr/bin/certbot
     state: link
-- name: Disable the certbot-snap auto-renewal timer
+- name: Stop and disable the certbot-snap auto-renewal timer
   # The root crontab renews certs in choreography with the peer LB (6h apart);
   # the snap timer fires at 01:37 / 21:43 on every host and breaks that choreography,
   # causing concurrent ACME orders against the shared LE account.
@@ -52,7 +52,16 @@
     name: snap.certbot.renew.timer
     state: stopped
     enabled: false
+  failed_when: false
+- name: Remove snap-installed certbot renew timer unit so it can be masked
+  ansible.builtin.file:
+    path: /etc/systemd/system/snap.certbot.renew.timer
+    state: absent
+- name: Mask the certbot-snap auto-renewal timer
+  ansible.builtin.systemd:
+    name: snap.certbot.renew.timer
     masked: true
+    daemon_reload: true
 - name: Download acme-dns-hook
   ansible.builtin.get_url:
     url: >-
