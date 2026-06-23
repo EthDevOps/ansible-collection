@@ -219,8 +219,15 @@
   ansible.builtin.command:
     cmd: /usr/local/bin/prepare-certs.sh
 - name: Add certificate auto-renew to cron
+  # Stagger renewals evenly across peers in `groups['all']` so concurrent ACME
+  # orders for the same identifiers against a shared LE account don't race
+  # Boulder's duplicate-certificate dedup (which returns the peer's cert paired
+  # with our locally-generated key → mismatch on disk).
   ansible.builtin.cron:
     name: renew certificates
-    minute: "{{ ansible_play_hosts.index(inventory_hostname) * 10 }}"
-    hour: "*/{{ acme_certificates_renewal_hours }}"
+    minute: "0"
+    hour: >-
+      {{ ((groups['all'] | default([], true)).index(inventory_hostname)
+          if inventory_hostname in (groups['all'] | default([], true)) else 0)
+         * (24 // ([(groups['all'] | default([], true)) | length, 1] | max)) }}
     job: "/usr/bin/certbot renew --post-hook '/usr/local/bin/prepare-certs.sh'{% if acme_certificates_inventory_url | length > 0 %} --deploy-hook '/usr/local/bin/inventory-cert.sh'{% endif %}"
