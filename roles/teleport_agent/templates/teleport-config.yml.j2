@@ -1,3 +1,9 @@
+{# Access groups / direct users from the Netbox teleport_groups and teleport_allowed_users
+   custom fields (comma-separated, flattened hostvars). Rendered as numbered labels
+   (group/group_2/..., allowed_user/allowed_user_2/...) because Teleport label
+   expressions cannot split() values. #}
+{% set teleport_group_list = ((teleport_groups | default('', true)) or '').split(',') | map('trim') | select | list %}
+{% set teleport_allowed_user_list = ((teleport_allowed_users | default('', true)) or '').split(',') | map('trim') | select | list %}
 version: v3
 teleport:
   nodename: {{ ansible_facts['hostname'] }}
@@ -23,6 +29,12 @@ ssh_service:
     role: {{ device_roles[0] }}
     tenant: {{ tenants[0] }}
     site: {{ sites[0] }}
+{% for group in teleport_group_list %}
+    group{{ '' if loop.first else '_' ~ loop.index }}: {{ group }}
+{% endfor %}
+{% for user in teleport_allowed_user_list %}
+    allowed_user{{ '' if loop.first else '_' ~ loop.index }}: {{ user }}
+{% endfor %}
   commands:
   - name: hostname
     command: [hostname]
@@ -47,6 +59,12 @@ app_service:
      public_addr: "{{ app.name }}.teleport.ethquokkaops.io"
      labels:
        tenant: {{ tenants[0] }}
+{% for group in teleport_group_list %}
+       group{{ '' if loop.first else '_' ~ loop.index }}: {{ group }}
+{% endfor %}
+{% for user in teleport_allowed_user_list %}
+       allowed_user{{ '' if loop.first else '_' ~ loop.index }}: {{ user }}
+{% endfor %}
 {% endfor %}
 {% for svc in services if svc.custom_fields.expose_mode == "teleport" %}
   -  name: "{{ svc.custom_fields.teleport_name }}"
@@ -54,6 +72,12 @@ app_service:
      public_addr: "{{ svc.custom_fields.teleport_name }}.teleport.ethquokkaops.io"
      labels:
        tenant: {{ tenants[0] }}
+{% for group in teleport_group_list %}
+       group{{ '' if loop.first else '_' ~ loop.index }}: {{ group }}
+{% endfor %}
+{% for user in teleport_allowed_user_list %}
+       allowed_user{{ '' if loop.first else '_' ~ loop.index }}: {{ user }}
+{% endfor %}
 {% endfor %}
 
 {% if (teleport_agent_desktops | length > 0) %}
