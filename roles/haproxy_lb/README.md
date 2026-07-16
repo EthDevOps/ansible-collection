@@ -129,6 +129,7 @@ haproxy_lb_k8s_services:
 | `ethquokkaops.io/http2-backend` | Optional. Enable HTTP/2 to backend |
 | `ethquokkaops.io/max-conn` | Optional. Max connections per server (default: 500) |
 | `ethquokkaops.io/allow-http` | Optional. `"true"` exempts the service from the global HTTPS redirect (`haproxy_lb_force_https`) and routes plain HTTP requests to the same backend. |
+| `ethquokkaops.io/deny-paths` | Optional. Comma-separated public path prefixes rejected with a 403 at the edge (matched with `path_beg` after URI normalization, before any `path` rewriting). Example: `"/api/auth/login"` |
 
 **Backend name format:** `{cluster}_{namespace}_{servicename}` (e.g., `prod_default_myservice`)
 
