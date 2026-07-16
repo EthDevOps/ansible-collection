@@ -417,9 +417,9 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_
 
     {% if svc.metadata.annotations["ethquokkaops.io/deny-paths"] is defined %}
     # Edge-deny the listed public path prefixes (before any path rewriting).
-    # Normalize first so /foo//bar or /foo/./bar can't slip past the prefix match.
-    http-request normalize-uri path-merge-slashes
-    http-request normalize-uri path-strip-dot
+    # Merge duplicate slashes first so /foo//bar can't slip past the prefix match
+    # (normalize-uri would be the full fix but is still experimental in HAProxy 3.3).
+    http-request set-path %[path,regsub(//+,/,g)]
     http-request return status 403 content-type text/plain lf-string "Forbidden" if { path_beg {{ svc.metadata.annotations["ethquokkaops.io/deny-paths"].split(',') | map('trim') | join(' ') }} }
     {% endif %}
 
@@ -479,9 +479,9 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
 
     {% if svc.metadata.annotations["ethquokkaops.io/deny-paths"] is defined %}
     # Edge-deny the listed public path prefixes (before any path rewriting).
-    # Normalize first so /foo//bar or /foo/./bar can't slip past the prefix match.
-    http-request normalize-uri path-merge-slashes
-    http-request normalize-uri path-strip-dot
+    # Merge duplicate slashes first so /foo//bar can't slip past the prefix match
+    # (normalize-uri would be the full fix but is still experimental in HAProxy 3.3).
+    http-request set-path %[path,regsub(//+,/,g)]
     http-request return status 403 content-type text/plain lf-string "Forbidden" if { path_beg {{ svc.metadata.annotations["ethquokkaops.io/deny-paths"].split(',') | map('trim') | join(' ') }} }
     {% endif %}
 
