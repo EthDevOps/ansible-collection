@@ -84,7 +84,33 @@ haproxy_lb_sites:
     max_conn: 500                 # Optional, max connections per server (default: 500)
     balance_mode: backup          # Optional, "backup" uses first available server, others as backup
     allow_http: true              # Optional, also serve this site on plain HTTP (exempt from haproxy_lb_force_https redirect)
+    health_check:                 # Optional, layer 7 health check (default is a bare TCP connect)
+      path: /healthz              #   Required when health_check is set
+      method: GET                 #   Optional, default GET
+      host: myapp.example.com     #   Optional, Host header to send with the check
+      expect_status: "200"        #   Optional, default "200". Accepts a list or range, e.g. "200,429"
 ```
+
+#### Layer 7 health checks
+
+By default a backend server is checked with a TCP (plus SSL, when `sslbackend`
+is set) connect. That marks the server up as soon as the port is open, which is
+wrong for applications that accept connections before they can serve — they
+receive traffic and return errors. Set `health_check` to check an actual
+endpoint instead:
+
+```yaml
+  tyrell:
+    domains:
+      - tyrell.example.com
+    cluster: openbao-production
+    sslbackend: true
+    health_check:
+      path: /v1/sys/health?standbyok=true
+      expect_status: "200"
+```
+
+Omitting `health_check` leaves the previous TCP-only behaviour unchanged.
 
 **Backend name format:** Site name (e.g., `myapp`)
 

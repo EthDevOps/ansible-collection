@@ -297,6 +297,17 @@ backend {{ site }}
     cookie SERVER_USED insert indirect nocache
     {% endif %}
 
+    {% if haproxy_lb_sites[site]["health_check"] is defined %}
+    # Layer 7 health check. Without this the default check is a bare TCP (plus
+    # SSL) connect, which marks a backend up as soon as it accepts connections
+    # even if the application behind it is not ready to serve.
+    option httpchk {{ haproxy_lb_sites[site].health_check.method | default('GET') }} {{ haproxy_lb_sites[site].health_check.path }}
+    {% if haproxy_lb_sites[site].health_check.host is defined %}
+    http-check send hdr Host {{ haproxy_lb_sites[site].health_check.host }}
+    {% endif %}
+    http-check expect status {{ haproxy_lb_sites[site].health_check.expect_status | default('200') }}
+    {% endif %}
+
     default-server check maxconn {{ haproxy_lb_sites[site].max_conn | default('500') }} fall 3 rise 2 {{ 'ssl verify none' if haproxy_lb_sites[site].sslbackend is defined else '' }} {{ 'alpn h2,http/1.1' if haproxy_lb_sites[site].http2 is defined else '' }} {{ 'cookie s' if haproxy_lb_sites[site]["use_sticky"] is defined }}{{ loop.index if haproxy_lb_sites[site]["use_sticky"] is defined }} {{ 'proto h2' if haproxy_lb_sites[site].backend_mode | default("http") == "grpc" else '' }}
 
     {% if haproxy_lb_sites[site].balance_mode is defined and haproxy_lb_sites[site].balance_mode == "backup" %}
