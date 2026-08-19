@@ -378,7 +378,7 @@ backend {{ site }}
 {% endfor %}
 
 {% for cluster in haproxy_lb_k8s_services %}
-{% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-public"] is defined and (svc.metadata.annotations["ethquokkaops.io/domain"] is defined or svc.metadata.annotations["ethquokkaops.io/domain-port-map"] is defined) %}
+{% for svc in cluster.resources if (svc.metadata.annotations["ethquokkaops.io/expose-public"] | default('false') | bool) and (svc.metadata.annotations["ethquokkaops.io/domain"] is defined or svc.metadata.annotations["ethquokkaops.io/domain-port-map"] is defined) %}
 {% if svc.metadata.annotations["ethquokkaops.io/domain-port-map"] is defined %}
 {# Multi-port mapping: create a backend for each unique port #}
 {% set port_mappings = svc.metadata.annotations["ethquokkaops.io/domain-port-map"].split(',') | map('trim') | list %}

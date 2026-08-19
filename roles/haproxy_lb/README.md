@@ -141,7 +141,7 @@ haproxy_lb_k8s_services:
 
 | Annotation | Description |
 |------------|-------------|
-| `ethquokkaops.io/expose-public` | Required. Enables HTTP exposure |
+| `ethquokkaops.io/expose-public` | Required. `"true"` enables HTTP exposure; any other value (or absent) means the service is not routed |
 | `ethquokkaops.io/domain` | Required (unless using `domain-port-map`). Comma-separated list of domains |
 | `ethquokkaops.io/domain-port-map` | Optional. Map different domains to different service ports (see below) |
 | `ethquokkaops.io/path` | Optional. Comma-separated path prefixes for routing |

@@ -122,7 +122,9 @@
    {% set services_without_path = [] %}
 
    {% for svc in cluster.resources %}
-   {% if svc.metadata.annotations["ethquokkaops.io/expose-public"] is defined and (svc.metadata.annotations["ethquokkaops.io/domain"] is defined or svc.metadata.annotations["ethquokkaops.io/domain-port-map"] is defined) %}
+   {# expose-public must be truthy ("true"/"yes"/1), not merely present, so a service
+      can be parked with expose-public: "false" without being routed. #}
+   {% if (svc.metadata.annotations["ethquokkaops.io/expose-public"] | default('false') | bool) and (svc.metadata.annotations["ethquokkaops.io/domain"] is defined or svc.metadata.annotations["ethquokkaops.io/domain-port-map"] is defined) %}
    {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
    {% set _ = services_with_path.append(svc) %}
    {% else %}
