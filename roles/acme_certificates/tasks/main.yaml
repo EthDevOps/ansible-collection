@@ -25,20 +25,48 @@
   ansible.builtin.apt:
     pkg:
       - jq
-- name: Enable and start snapd socket
+- name: Enable and start snapd
+  # Both units, not just the socket. With only snapd.socket started the daemon
+  # starts cold underneath the first store request, and on a host with no snaps
+  # installed yet snapd concludes it has nothing to manage and exits mid-request
+  # ("daemon stop requested to wait for socket activation" in its journal). That
+  # cancels the in-flight POST and surfaces as:
+  #   error: cannot install "core": Post ".../v2/snaps/refresh": context canceled
+  # It is a race, so across a batch of identical hosts it fails on some and not
+  # others, which makes it look like a network fault rather than an ordering bug.
   ansible.builtin.systemd:
-    name: snapd.socket
+    name: "{{ item }}"
     enabled: true
     state: started
+  loop:
+    - snapd.socket
+    - snapd.service
+- name: Wait for snapd to finish seeding
+  # Store operations are refused or cancelled until seeding completes. Returns
+  # immediately on an already-seeded host, so this costs nothing on re-runs.
+  ansible.builtin.command:
+    cmd: snap wait system seed.loaded
+  changed_when: false
+  timeout: 180
 - name: Install snap core
   community.general.snap:
     name: core
     state: present
+  register: acme_certificates_snap_core
+  until: acme_certificates_snap_core is succeeded
+  retries: 3
+  delay: 10
 - name: Install certbot via snap
+  # Retried for the same reason as core above: this is the other store operation
+  # that runs before any snap is resident on a fresh host.
   community.general.snap:
     name: certbot
     classic: true
     state: present
+  register: acme_certificates_snap_certbot
+  until: acme_certificates_snap_certbot is succeeded
+  retries: 3
+  delay: 10
 - name: Create certbot symlink
   ansible.builtin.file:
     src: /snap/bin/certbot
