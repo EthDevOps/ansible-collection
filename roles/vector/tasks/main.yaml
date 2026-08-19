@@ -19,6 +19,7 @@
   ansible.builtin.copy:
     src: vector-multi.service
     dest: /etc/systemd/system/vector-multi.service
+  notify: Restart Vector
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
