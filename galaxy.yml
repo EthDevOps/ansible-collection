@@ -7,13 +7,14 @@ namespace: ethdevops
 # The name of the collection. Has the same character restrictions as 'namespace'
 name: infrastructure
 # The version of the collection. Must be compatible with semantic versioning
-version: 1.5.45
+version: 1.5.46
 # The path to the Markdown (.md) readme file. This path is relative to the root of the collection
 readme: README.md
 # A list of the collection's content authors. Can be just the name or in the format 'Full Name <email> (url)
 # @nicks:irc/im.site#channel'
 authors:
   - Markus Keil <markus.keil@ethereum.org>
+  - Paul Jickling <paul.jickling@ethereum.org>
 ### OPTIONAL but strongly recommended
 # A short summary description of the collection
 description: General ansible roles from EF devops
