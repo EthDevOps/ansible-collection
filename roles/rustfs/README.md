@@ -19,6 +19,7 @@ Default variables are defined in [defaults/main.yml](defaults/main.yml)
 | `rustfs_port` | S3 API listen port | `9000` |
 | `rustfs_console_port` | Web console listen port | `9001` |
 | `rustfs_data_dir` | Path to the data/volumes directory | `"/data"` |
+| `rustfs_domain` | Base domain for virtual-host-style bucket addressing (`RUSTFS_SERVER_DOMAINS`, e.g. `s3.example.com` so `bucket.s3.example.com` works); empty = path-style only | `""` |
 | `rustfs_access_key` | Access key (override with a secret) | `"rustfsadmin"` |
 | `rustfs_secret_key` | Secret key (override with a secret) | `"rustfsadmin"` |
 | `rustfs_extra_env_vars` | Additional environment variables (dict) | `{}` |

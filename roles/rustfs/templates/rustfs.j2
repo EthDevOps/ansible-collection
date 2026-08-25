@@ -8,7 +8,10 @@ RUSTFS_SECRET_KEY={{ rustfs_secret_key }}
 # RustFS server configuration
 RUSTFS_VOLUMES="{{ rustfs_data_dir }}"
 RUSTFS_ADDRESS=":{{ rustfs_port }}"
-RUSTFS_DOMAINS="{{ rustfs_domain }}"
+{% if rustfs_domain %}
+# Virtual-host-style bucket addressing (bucket.<domain>); unset = path-style only
+RUSTFS_SERVER_DOMAINS="{{ rustfs_domain }}"
+{% endif %}
 # Console configuration
 RUSTFS_CONSOLE_ENABLE=true
 
