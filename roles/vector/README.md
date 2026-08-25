@@ -14,7 +14,7 @@ Default variables are defined in [defaults/main.yaml](defaults/main.yaml)
 |----------|-------------|---------|
 | `vector_extra_metrics` | Additional metrics configuration | `""` |
 | `vector_install_nodexporter` | Install node_exporter | `true` |
-| `vector_version` | Vector version to install | `"0.51.1-1"` |
+| `vector_version` | Vector version to install | `"0.57.0-1"` |
 
 ## Dependencies
 

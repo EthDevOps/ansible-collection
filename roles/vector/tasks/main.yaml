@@ -3,18 +3,33 @@
   ansible.builtin.command: dpkg --print-architecture
   register: vector_system_arch
   changed_when: false
-- name: Download Vector deb package
-  ansible.builtin.get_url:
-    url: "https://apt.vector.dev/pool/v/ve/vector_{{ vector_version }}_{{ vector_system_arch.stdout }}.deb"
-    dest: "/tmp/vector_{{ vector_version }}_{{ vector_system_arch.stdout }}.deb"
-    mode: '0644'
-- name: Install Vector using dpkg
-  ansible.builtin.apt:
-    deb: "/tmp/vector_{{ vector_version }}_{{ vector_system_arch.stdout }}.deb"
-- name: Clean up downloaded deb file
-  ansible.builtin.file:
-    path: "/tmp/vector_{{ vector_version }}_{{ vector_system_arch.stdout }}.deb"
-    state: absent
+- name: Get installed Vector version
+  ansible.builtin.command: dpkg-query -W -f='${Version}' vector
+  register: vector_installed
+  changed_when: false
+  failed_when: false
+- name: Check whether the pinned Vector version is newer than the installed one
+  ansible.builtin.command: >-
+    dpkg --compare-versions "{{ vector_installed.stdout }}" lt "{{ vector_version }}"
+  register: vector_upgrade_needed
+  changed_when: false
+  failed_when: false
+  when: vector_installed.rc == 0
+- name: Install pinned Vector version
+  when: (vector_installed.rc | default(1)) != 0 or (vector_upgrade_needed.rc | default(1)) == 0
+  block:
+    - name: Download Vector deb package
+      ansible.builtin.get_url:
+        url: "https://apt.vector.dev/pool/v/ve/vector_{{ vector_version }}_{{ vector_system_arch.stdout }}.deb"
+        dest: "/tmp/vector_{{ vector_version }}_{{ vector_system_arch.stdout }}.deb"
+        mode: '0644'
+    - name: Install Vector using dpkg
+      ansible.builtin.apt:
+        deb: "/tmp/vector_{{ vector_version }}_{{ vector_system_arch.stdout }}.deb"
+    - name: Clean up downloaded deb file
+      ansible.builtin.file:
+        path: "/tmp/vector_{{ vector_version }}_{{ vector_system_arch.stdout }}.deb"
+        state: absent
 - name: Copy vector multi systemd unit
   ansible.builtin.copy:
     src: vector-multi.service
