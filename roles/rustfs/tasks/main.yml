@@ -39,34 +39,44 @@
     owner: rustfs
     group: rustfs
     mode: '0755'
+- name: Create RustFS version directory
+  ansible.builtin.file:
+    path: "/opt/rustfs/versions/{{ rustfs_version }}"
+    state: directory
+    owner: rustfs
+    group: rustfs
+    mode: '0755'
 - name: Download RustFS server archive
   ansible.builtin.get_url:
     url: "{{ rustfs_server_url }}"
-    dest: /tmp/rustfs-server.zip
+    dest: "/tmp/rustfs-server-{{ rustfs_version }}.zip"
     mode: '0644'
-  notify: Restart rustfs
 - name: Extract RustFS server binary
   ansible.builtin.unarchive:
-    src: /tmp/rustfs-server.zip
-    dest: /opt/rustfs/bin/
+    src: "/tmp/rustfs-server-{{ rustfs_version }}.zip"
+    dest: "/opt/rustfs/versions/{{ rustfs_version }}/"
     remote_src: true
     owner: rustfs
     group: rustfs
     mode: '0755'
-- name: Ensure rustfs binary is executable
+    creates: "/opt/rustfs/versions/{{ rustfs_version }}/rustfs"
+- name: Link active RustFS server binary
   ansible.builtin.file:
-    path: /opt/rustfs/bin/rustfs
+    src: "/opt/rustfs/versions/{{ rustfs_version }}/rustfs"
+    dest: /opt/rustfs/bin/rustfs
+    state: link
     owner: rustfs
     group: rustfs
-    mode: '0755'
+    force: true
+  notify: Restart rustfs
 - name: Download RustFS client archive
   ansible.builtin.get_url:
     url: "{{ rustfs_client_url }}"
-    dest: /tmp/rustfs-cli.tar.gz
+    dest: "/tmp/rustfs-cli-{{ rustfs_client_version }}.tar.gz"
     mode: '0644'
 - name: Extract RustFS client binary
   ansible.builtin.unarchive:
-    src: /tmp/rustfs-cli.tar.gz
+    src: "/tmp/rustfs-cli-{{ rustfs_client_version }}.tar.gz"
     dest: /opt/rustfs/bin/
     remote_src: true
     owner: rustfs
