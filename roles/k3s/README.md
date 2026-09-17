@@ -10,6 +10,11 @@ None
 
 Default variables are defined in [defaults/main.yaml](defaults/main.yaml)
 
+On server nodes the k3s kubeconfig is copied to `<k3s_user home>/.kube/config`
+(default `/root/.kube/config`). `k3s_user` is pinned to a fixed user instead
+of the Ansible connection user so the location and permissions are the same
+regardless of which user you connect as.
+
 To clean up the installation you can use the `k3s_cleanup=true` variable.
 If you also want to remove the `local-path` provisioned volumes, you also need to set `k3s_cleanup_localpath_persistent_volumes=true`.
 

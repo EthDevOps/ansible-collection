@@ -1,6 +1,10 @@
 ---
 k3s_token: ""
 k3s_network_backend: host-gw
+# Local user that owns the kubeconfig written to <home>/.kube/config on
+# server nodes. Pinned to a fixed user instead of the Ansible connection
+# user, so the location and permissions are deterministic.
+k3s_user: root
 k3s_version: v1.31.5+k3s1
 k3s_systemd_dir: /etc/systemd/system
 k3s_server_location: /var/lib/rancher/k3s

@@ -25,9 +25,9 @@
     mode: "0644"
 - name: Create directory .kube
   ansible.builtin.file:
-    path: ~/{{ ansible_user }}/.kube
+    path: "{{ k3s_user_home }}/.kube"
     state: directory
-    owner: "{{ ansible_user }}"
+    owner: "{{ k3s_user }}"
     mode: "u=rwx,g=rx,o="
 - name: Create dir for /etc/rancher/k3s/config.yaml.d
   ansible.builtin.file:
@@ -179,15 +179,15 @@
 - name: Copy config file to user home directory
   ansible.builtin.copy:
     src: /etc/rancher/k3s/k3s.yaml
-    dest: ~/{{ ansible_user }}/.kube/config
+    dest: "{{ k3s_user_home }}/.kube/config"
     remote_src: true
-    owner: "{{ ansible_user }}"
+    owner: "{{ k3s_user }}"
     mode: "u=rw,g=,o="
 # - name: Replace https://localhost:6443 by https://master-ip:6443
 #   ansible.builtin.command: >-
 #     k3s kubectl config set-cluster default
 #     --server=https://{{ k3s_server_lb_ip }}:6443
-#     --kubeconfig ~/{{ ansible_user }}/.kube/config
+#     --kubeconfig {{ k3s_user_home }}/.kube/config
 #   changed_when: true
 - name: Create kubectl symlink
   ansible.builtin.file:

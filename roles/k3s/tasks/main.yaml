@@ -1,4 +1,13 @@
 ---
+- name: Get home directory of {{ k3s_user }}
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ k3s_user }}"
+    fail_key: true
+  register: k3s_user_getent
+- name: Set k3s_user home fact
+  ansible.builtin.set_fact:
+    k3s_user_home: "{{ k3s_user_getent.ansible_facts.getent_passwd[k3s_user]['5'] }}"
 - name: Setup k3s
   when: not k3s_cleanup
   block:
