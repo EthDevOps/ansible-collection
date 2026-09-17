@@ -5,9 +5,11 @@
     key: "{{ k3s_user }}"
     fail_key: true
   register: k3s_user_getent
+# getent passwd lines are "user:pass:uid:gid:gecos:home:shell" and the
+# module stores record[1:], so the home directory is at index 4
 - name: Set k3s_user home fact
   ansible.builtin.set_fact:
-    k3s_user_home: "{{ k3s_user_getent.ansible_facts.getent_passwd[k3s_user]['5'] }}"
+    k3s_user_home: "{{ k3s_user_getent.ansible_facts.getent_passwd[k3s_user][4] }}"
 - name: Setup k3s
   when: not k3s_cleanup
   block:
