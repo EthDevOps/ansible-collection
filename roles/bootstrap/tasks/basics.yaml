@@ -15,7 +15,7 @@
 - name: Add self to /etc/hosts
   ansible.builtin.lineinfile:
     dest: /etc/hosts
-    line: '{{ ansible_host }} {{ inventory_hostname }}'
+    line: "{{ ansible_facts['default_ipv4']['address'] }} {{ inventory_hostname }}"
 - name: Update apt cache
   ansible.builtin.apt:
     update_cache: true
