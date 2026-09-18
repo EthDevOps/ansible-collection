@@ -1,0 +1,30 @@
+---
+- name: Remove stale locale category overrides
+  ansible.builtin.lineinfile:
+    path: "{{ item }}"
+    regexp: '^LC_[A-Z]+='
+    state: absent
+    create: false
+  loop:
+    - /etc/default/locale
+    - /etc/environment
+- name: Set the system locale
+  ansible.builtin.lineinfile:
+    path: /etc/default/locale
+    regexp: '^LANG='
+    line: "LANG={{ bootstrap_default_locale }}"
+    create: true
+    mode: '0644'
+- name: List available locales
+  ansible.builtin.command: locale -a
+  register: bootstrap_available_locales
+  changed_when: false
+- name: Verify the locale is available on the system
+  ansible.builtin.assert:
+    that:
+      - bootstrap_default_locale | lower in (bootstrap_available_locales.stdout_lines | map('lower') | list)
+    fail_msg: >-
+      Locale {{ bootstrap_default_locale }} is not generated on this host.
+      C and C.UTF-8 are built in; for any other locale install the "locales"
+      package, add "<locale> <charset>" to /etc/locale.gen and run "locale-gen"
+      before overriding bootstrap_default_locale.

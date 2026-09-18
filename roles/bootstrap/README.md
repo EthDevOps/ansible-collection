@@ -14,6 +14,7 @@ Default variables are defined in [defaults/main.yaml](defaults/main.yaml)
 |----------|-------------|---------|
 | `bootstrap_additional_users` | List of additional users to create | `[]` |
 | `bootstrap_storage_optimized` | Enable storage optimizations | `false` |
+| `bootstrap_default_locale` | System locale (LANG) and removal of stale `LC_*` overrides from `/etc/default/locale` and `/etc/environment` | `C.UTF-8` |
 
 ## Dependencies
 

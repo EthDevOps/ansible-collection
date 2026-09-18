@@ -2,3 +2,4 @@
 bootstrap_user_shell: /bin/bash
 bootstrap_additional_users: []
 bootstrap_storage_optimized: false
+bootstrap_default_locale: C.UTF-8

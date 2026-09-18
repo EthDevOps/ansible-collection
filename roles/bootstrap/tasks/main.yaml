@@ -1,6 +1,8 @@
 ---
 - name: Setup basics
   ansible.builtin.import_tasks: basics.yaml
+- name: Set system locale
+  ansible.builtin.import_tasks: locale.yaml
 - name: Apply kernel hardening sysctls
   ansible.builtin.import_tasks: kernel_hardening.yaml
   when: ansible_facts["virtualization_type"] != "lxc"
