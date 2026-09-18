@@ -15,6 +15,15 @@
     line: "LANG={{ bootstrap_default_locale }}"
     create: true
     mode: '0644'
+- name: Ensure the locales package is installed
+  ansible.builtin.apt:
+    name: locales
+  when: bootstrap_default_locale | lower not in ['c', 'c.utf-8']
+- name: Ensure the locale is generated
+  community.general.locale_gen:
+    name: "{{ bootstrap_default_locale }}"
+    state: present
+  when: bootstrap_default_locale | lower not in ['c', 'c.utf-8']
 - name: List available locales
   ansible.builtin.command: locale -a
   register: bootstrap_available_locales
@@ -22,9 +31,7 @@
 - name: Verify the locale is available on the system
   ansible.builtin.assert:
     that:
-      - bootstrap_default_locale | lower in (bootstrap_available_locales.stdout_lines | map('lower') | list)
+      - "bootstrap_default_locale | lower | regex_replace('utf-8$', 'utf8') in (bootstrap_available_locales.stdout_lines | map('lower') | map('regex_replace', 'utf-8$', 'utf8') | list)"
     fail_msg: >-
-      Locale {{ bootstrap_default_locale }} is not generated on this host.
-      C and C.UTF-8 are built in; for any other locale install the "locales"
-      package, add "<locale> <charset>" to /etc/locale.gen and run "locale-gen"
-      before overriding bootstrap_default_locale.
+      Locale {{ bootstrap_default_locale }} is not available after generation.
+      Run 'locale -a' on the host to inspect the available locales.
