@@ -1,0 +1,87 @@
+---
+# Ships the local auditd log to the central VictoriaLogs sink. Each audit
+# log line is one kernel record, parsed into flat fields so LogQL can query
+# audit_type/key/name/bind_addr/... directly. The log_type=audit marker
+# lets the VictoriaLogs ingress route or filter these events independently
+# of the other log sources.
+#
+# The source name is deliberately NOT `logs_*`-prefixed: the shared
+# logs_with_labels transform (vector.yaml) takes `logs_*` as input, so a
+# `logs_*`-named raw source would be shipped twice (raw + parsed). The
+# transform below is named logs_audit and is the only copy that flows to
+# the sink.
+#
+# Line format (ENRICHED): "<raw record>\x1d<enriched>". The raw part is
+# "type=<T> msg=audit(<ts>:<id>): k=v k=v ...". The enriched part, after a
+# single 0x1D (GROUP SEPARATOR) byte, is auditd's decoded copy of a few
+# fields; the only one we use is SADDR - the kernel bind address decoded
+# from the hex saddr in the raw part.
+sources:
+  audit_log:
+    type: file
+    include:
+      - /var/log/audit/audit.log
+    read_from: end
+
+transforms:
+  logs_audit:
+    type: remap
+    inputs: [audit_log]
+    source: |-
+      .tags.log_type = "audit"
+      .message = string!(.message)
+
+      # ENRICHED lines carry the decoded fields after a single 0x1D. Split
+      # it off so it cannot fold into the last raw key=value field.
+      interp = parse_regex(.message, r'^(?P<raw>.*?)\x1d(?P<tail>.*)$') ?? null
+      tail = ""
+      if interp != null {
+        .message = string!(interp.raw)
+        tail = string!(interp.tail)
+      }
+
+      # Header: type=<T> msg=...
+      m = parse_regex(.message, r'^type=(?P<atype>[A-Z0-9_]+)\s+msg=(?P<msgrest>.*)$') ?? null
+      if m == null {
+        .tags.audit_unparsed = true
+        return null
+      }
+      .audit_type = string!(m.atype)
+
+      # msg=audit(<ts>:<id>): <fields>
+      rest = string!(m.msgrest)
+      hm = parse_regex(rest, r'^audit\((?P<ts>[\d.]+):(?P<id>\d+)\):\s*(?P<fields>.*)$') ?? null
+      if hm != null {
+        .audit_ts = string!(hm.ts)
+        .audit_id = string!(hm.id)
+        rest = string!(hm.fields)
+      }
+
+      # Generic key=value fields. Space-separated, double-quoted values
+      # (comm="useradd", name="/etc/passwd") are handled by parse_key_value.
+      . |= parse_key_value(rest) ?? {}
+
+      # SOCKADDR: the kernel writes saddr=<hex>; the enriched tail decodes
+      # it to 'SADDR={ saddr_fam=AF_INET laddr=0.0.0.0 lport=8080 }' (v6:
+      # AF_INET6, laddr=::). AF_UNIX binds have no laddr/lport, so they get
+      # no bind_addr and cannot trip the wildcard-listen alerts.
+      if .audit_type == "SOCKADDR" {
+        del(.saddr)
+        sa = parse_regex(tail, r'SADDR=\{ saddr_fam=\w+ laddr=(?P<addr>[^ ]+) lport=(?P<port>\d+) \}') ?? null
+        if sa != null {
+          .bind_addr = string!(sa.addr)
+          .bind_port = to_int!(string!(sa.port))
+        }
+      }
+
+      {% if auditd_etc_noise_prefixes | length > 0 %}
+      # Drop high-volume /etc churn (DHCP, package manager, CA certs) before
+      # shipping. The watch key lives on the SYSCALL record of the same
+      # event, not on the PATH record, so this matches on the name instead.
+      if .audit_type == "PATH" && exists(.name) {
+        noisy = parse_regex(string!(.name), r'^(?:{% for p in auditd_etc_noise_prefixes %}{{ p | regex_escape }}{% if not loop.last %}|{% endif %}{% endfor %})') ?? null
+        if noisy != null {
+          abort
+        }
+      }
+      {% endif %}

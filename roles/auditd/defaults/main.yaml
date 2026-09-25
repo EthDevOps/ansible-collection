@@ -1,0 +1,99 @@
+---
+# Master switch; set false on hosts that should not run auditd.
+auditd_enabled: true
+# Lock the ruleset in the kernel (-e 2). While locked, rule changes only
+# take effect after a reboot. The role will not restart auditd in that case
+# (restarting with a changed ruleset would make auditd fail to load and drop
+# the daemon, creating a logging gap) and instead warns that a reboot is
+# required. Set false to allow live rule changes at the cost of runtime
+# tamperability.
+auditd_immutable: true
+# Watch access to the docker socket. Dev hosts run docker and every docker
+# CLI call touches the socket, so this is informational (dashboards), not
+# alerted.
+auditd_watch_docker_sock: true
+# auditd.conf knobs
+auditd_log_format: ENRICHED
+auditd_max_log_file: 8
+auditd_num_logs: 8
+auditd_space_left_action: ROTATE
+# Extra home directories to watch for SSH key material, on top of /root and
+# every real user account that is auto-detected from /etc/passwd. Entries
+# are expanded to <home>/.ssh at runtime.
+auditd_ssh_user_homes: []
+# Path prefixes under which /etc write events are dropped by the vector
+# transform before shipping (package-manager and DHCP churn). The
+# sensitive-file alerts match specific paths, so none of these is alertable.
+auditd_etc_noise_prefixes:
+  - /etc/resolv.conf
+  - /etc/hosts
+  - /etc/hostname
+  - /etc/machine-id
+  - /etc/mtab
+  - /etc/ssl
+  - /etc/ca-certificates
+  - /etc/apt
+  - /etc/dpkg
+  - /etc/kernel
+  - /etc/ld.so.cache
+# File watches: path, perm (r/w/x/a/k combination), key. Watches on paths
+# that do not exist on a host are skipped at runtime - a watch on a missing
+# path would make auditd refuse to load the ruleset.
+auditd_watches:
+  - path: /etc
+    perm: wa
+    key: etc
+  - path: /etc/sudoers
+    perm: wa
+    key: sudoers
+  - path: /etc/sudoers.d
+    perm: wa
+    key: sudoers
+  - path: /etc/passwd
+    perm: wa
+    key: acct
+  - path: /etc/shadow
+    perm: wa
+    key: acct
+  - path: /etc/gshadow
+    perm: wa
+    key: acct
+  - path: /etc/group
+    perm: wa
+    key: acct
+  - path: /etc/pam.d
+    perm: wa
+    key: pam
+  - path: /etc/ssh
+    perm: wa
+    key: sshcfg
+  - path: /etc/crontab
+    perm: wa
+    key: cron
+  - path: /etc/cron.d
+    perm: wa
+    key: cron
+  - path: /var/spool/cron
+    perm: wa
+    key: cron
+  - path: /etc/systemd
+    perm: wa
+    key: systemd
+  - path: /root
+    perm: wa
+    key: root
+  - path: /usr/bin/sudo
+    perm: x
+    key: sudo
+  - path: /usr/bin/su
+    perm: x
+    key: su
+  - path: /usr/sbin/modprobe
+    perm: x
+    key: modload
+  - path: /etc/audit
+    perm: wa
+    key: auditself
+  - path: /var/log/audit
+    perm: wa
+    key: auditself

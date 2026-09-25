@@ -1,0 +1,34 @@
+##
+## auditd configuration managed by Ansible (ethdevops.infrastructure role
+## auditd). Do not edit by hand - change the role variables instead.
+##
+
+## Log events locally.
+local_events = yes
+
+## Log file to use.
+log_file = /var/log/audit/audit.log
+
+## ENRICHED resolves uids to user names and pids to executable paths, which
+## the central LogQL alerts and dashboards query on.
+log_format = {{ auditd_log_format }}
+
+## Flush behaviour.
+flush = INCREMENTAL_ASYNC
+freq = 50
+
+## Log file size in megabytes before rotation.
+max_log_file = {{ auditd_max_log_file }}
+max_log_file_action = ROTATE
+
+## Number of rotated log files to keep.
+num_logs = {{ auditd_num_logs }}
+
+## Actions when disk space gets low. ROTATE keeps writing to a fresh file
+## instead of suspending the audit trail.
+space_left = 750
+space_left_action = {{ auditd_space_left_action }}
+admin_space_left = 500
+admin_space_left_action = SUSPEND
+disk_full_action = SUSPEND
+disk_error_action = SUSPEND

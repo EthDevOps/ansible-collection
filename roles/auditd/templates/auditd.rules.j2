@@ -1,0 +1,55 @@
+##
+## Audit rules managed by Ansible (ethdevops.infrastructure role auditd).
+## Do not edit by hand - change the role variables instead.
+##
+## Only watches on paths that exist on this host are rendered: a watch on a
+## missing path makes auditd refuse to load the ruleset.
+
+## /etc and its high-signal files (dedicated keys so the central alerts can
+## tell them apart from the bulk /etc watch)
+{% for watch in auditd_watches_existing %}
+-w {{ watch.path }} -p {{ watch.perm }} -k {{ watch.key }}
+{% endfor %}
+
+## SSH key material (root plus every real user account that has a .ssh dir)
+{% for dir in auditd_ssh_key_dirs_existing %}
+-w {{ dir }} -p wa -k sshkeys
+{% endfor %}
+
+## Network: binds. The kernel emits a SOCKADDR record for every bind; the
+## vector transform decodes the AF_INET/AF_INET6 ones into
+## bind_addr/bind_port. The socket family sits behind the a1 pointer, not
+## in a filterable syscall argument, so all binds are audited and AF_UNIX
+## (dbus, systemd) is filtered in the transform instead - it has no
+## laddr/lport, so it cannot trip the wildcard-listen alerts.
+-a always,exit -F arch=b64 -S bind -k nbind
+
+## Account management tooling. Placed before rootexec: the first matching
+## rule sets the event's key, so without this ordering every root execve
+## (including these) would be recorded as rootexec.
+-a always,exit -F arch=b64 -S execve -F exe=/usr/sbin/useradd -k acctmgmt
+-a always,exit -F arch=b64 -S execve -F exe=/usr/sbin/usermod -k acctmgmt
+-a always,exit -F arch=b64 -S execve -F exe=/usr/sbin/groupadd -k acctmgmt
+-a always,exit -F arch=b64 -S execve -F exe=/usr/sbin/groupmod -k acctmgmt
+-a always,exit -F arch=b64 -S execve -F exe=/usr/sbin/chpasswd -k acctmgmt
+-a always,exit -F arch=b64 -S execve -F exe=/usr/bin/passwd -k acctmgmt
+
+## Every process executed with effective uid 0
+-a always,exit -F arch=b64 -S execve -F euid=0 -k rootexec
+
+## Kernel module loading (rootkit / eBPF signal)
+-a always,exit -F arch=b64 -S init_module -S finit_module -k modload
+
+## Process tracing / injection (devs use gdb and strace, so the central
+## alert for this is warning-level)
+-a always,exit -F arch=b64 -S ptrace -k ptrace
+
+## Clock tampering
+-a always,exit -F arch=b64 -S clock_settime -S adjtimex -S settimeofday -k time
+
+{% if auditd_immutable %}
+## Lock the ruleset in the kernel. From here on any change requires a
+## reboot; the role relies on that and will not restart auditd when the
+## rules change.
+-e 2
+{% endif %}

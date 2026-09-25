@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: auditd
+  author: EthDevOps
+  description: Install auditd, deploy a fleet-wide audit ruleset (etc, SSH keys, binds, account management, persistence) and ship the audit log to the central log sink via vector
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - auditd
+    - auditing
+    - security
+    - compliance
+dependencies: []

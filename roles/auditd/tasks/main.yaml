@@ -1,0 +1,230 @@
+---
+# Installs auditd, deploys the fleet ruleset (see defaults/main.yaml) and
+# ships /var/log/audit/audit.log to the central VictoriaLogs sink via the
+# existing vector setup. The LogQL alerts that consume these events live in
+# ethquokkaops/monitoring-central (Terraform log_rules), not in this role.
+- name: Check OS family
+  ansible.builtin.assert:
+    that: ansible_os_family == 'Debian'
+    fail_msg: "The auditd role only supports Debian/Ubuntu"
+  when: auditd_enabled
+- name: Install auditd and acl
+  ansible.builtin.apt:
+    name:
+      - auditd
+      - acl
+    state: present
+  when: auditd_enabled
+- name: Get current auditd service state
+  ansible.builtin.systemd:
+    name: auditd
+  register: auditd_service_state
+  when: auditd_enabled
+# getent passwd columns: 6 = home directory, 7 = shell. Accounts without a
+# usable home or with a nologin shell cannot meaningfully hold SSH keys;
+# the stat step below drops any directory that does not exist anyway.
+- name: Collect candidate ssh key directories
+  ansible.builtin.shell: |
+    set -o pipefail
+    getent passwd | awk -F: '
+        $6 != "" && $6 != "/" && $6 != "/nonexistent" && $6 != "/bin" && $6 != "/usr/sbin" &&
+        $7 != "/usr/sbin/nologin" && $7 != "/bin/false" && $7 != "/sbin/nologin" { print $6 "/.ssh" }'
+  register: auditd_ssh_key_dirs_raw
+  changed_when: false
+  when: auditd_enabled
+- name: Set fact for candidate ssh key directories
+  ansible.builtin.set_fact:
+    auditd_ssh_key_dirs: >-
+      {{ (['/root/.ssh']
+          + (auditd_ssh_user_homes | default([]) | map('regex_replace', '(.*)$', '\\1/.ssh') | list)
+          + auditd_ssh_key_dirs_raw.stdout_lines)
+         | unique | list }}
+  when: auditd_enabled
+- name: Check which ssh key directories exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ auditd_ssh_key_dirs }}"
+  loop_control:
+    label: "{{ item }}"
+  register: auditd_ssh_key_dirs_stat
+  when: auditd_enabled
+- name: Set fact for existing ssh key directories
+  ansible.builtin.set_fact:
+    auditd_ssh_key_dirs_existing: >-
+      {{ auditd_ssh_key_dirs_stat.results
+         | selectattr('stat.exists')
+         | map(attribute='stat.path') | list }}
+  when: auditd_enabled
+- name: Set fact for effective audit watches
+  ansible.builtin.set_fact:
+    auditd_watches_effective: >-
+      {{ auditd_watches
+         + ([{'path': '/var/run/docker.sock', 'perm': 'rwak', 'key': 'docks'}]
+            if auditd_watch_docker_sock else []) }}
+  when: auditd_enabled
+- name: Check which watch paths exist
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  loop: "{{ auditd_watches_effective }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: auditd_watches_stat
+  when: auditd_enabled
+# A watch on a path that does not exist makes auditd refuse to load the
+# ruleset, so only existing paths are rendered into the rules file.
+- name: Set fact for existing watch paths
+  ansible.builtin.set_fact:
+    auditd_watches_existing: >-
+      {{ auditd_watches_stat.results
+         | selectattr('stat.exists')
+         | map(attribute='item') | list }}
+  when: auditd_enabled
+- name: Set fact for expected audit keys
+  ansible.builtin.set_fact:
+    auditd_expected_keys: >-
+      {{ (auditd_watches_existing | map(attribute='key') | list)
+         + (['sshkeys'] if auditd_ssh_key_dirs_existing | length > 0 else [])
+         + ['nbind', 'rootexec', 'acctmgmt', 'modload', 'ptrace', 'time'] }}
+  when: auditd_enabled
+- name: Ensure audit log directory exists
+  ansible.builtin.file:
+    path: /var/log/audit
+    state: directory
+    owner: root
+    group: adm
+    mode: "0750"
+  when: auditd_enabled
+- name: Template auditd configuration
+  ansible.builtin.template:
+    src: auditd.conf.j2
+    dest: /etc/audit/auditd.conf
+    owner: root
+    group: root
+    mode: "0640"
+  when: auditd_enabled
+  notify: Restart auditd
+- name: Template audit rules
+  ansible.builtin.template:
+    src: auditd.rules.j2
+    dest: /etc/audit/rules.d/99-quokka.rules
+    owner: root
+    group: root
+    mode: "0640"
+  when: auditd_enabled
+  register: auditd_rules_template
+# With -e 2 the kernel rejects rule changes until reboot. Restarting auditd
+# here would make it fail to load the new ruleset and drop the daemon,
+# opening a logging gap while the old rules are still active in the kernel.
+# The running daemon is left alone; the new rules apply on the next reboot.
+- name: Warn that audit rule changes require a reboot
+  ansible.builtin.debug:
+    msg: >-
+      Audit rules changed but the audit system is locked (-e 2). auditd
+      keeps running with the current ruleset; the new rules take effect
+      after a reboot.
+  when:
+    - auditd_enabled
+    - auditd_rules_template.changed
+    - auditd_immutable
+    - auditd_service_state.status.ActiveState | default('inactive') == 'active'
+- name: Restart auditd
+  ansible.builtin.systemd:
+    name: auditd
+    state: restarted
+    enabled: true
+  when:
+    - auditd_enabled
+    - not (auditd_rules_template.changed
+           and auditd_immutable
+           and auditd_service_state.status.ActiveState | default('inactive') == 'active')
+- name: Read active audit configuration
+  ansible.builtin.command: auditctl -s
+  register: auditd_auditctl_status
+  changed_when: false
+  when: auditd_enabled
+- name: Read active audit rules
+  ansible.builtin.command: auditctl -l
+  register: auditd_auditctl_rules
+  changed_when: false
+  when: auditd_enabled
+- name: Verify auditd enabled flag matches auditd_immutable
+  ansible.builtin.assert:
+    that: auditd_auditctl_status.stdout is search("enabled = " ~ (2 if auditd_immutable else 1))
+    fail_msg: >-
+      auditd 'enabled' flag is not {{ 2 if auditd_immutable else 1 }}. If
+      auditd_immutable was just changed, the kernel flag updates on the next
+      auditd restart or reboot. Active state: {{ auditd_auditctl_status.stdout | trim }}
+  when: auditd_enabled
+# auditctl -l prints watch rules as "-k <key>" and syscall rules as
+# "key=<key>"; match both.
+- name: Verify all expected audit keys are active
+  ansible.builtin.assert:
+    that: auditd_auditctl_rules.stdout is search('(?:-k |key=)' ~ item ~ '(?:\s|$)')
+    fail_msg: >-
+      Audit rule with key '{{ item }}' is not active in the kernel. If the
+      rules changed recently and auditd_immutable is true, the ruleset is
+      locked and the new rules apply after a reboot.
+  loop: "{{ auditd_expected_keys | unique }}"
+  when: auditd_enabled
+# The vector user needs read access to the audit log. The stock 0750
+# root:adm directory is otherwise left untouched - same ACL approach as the
+# k3s audit log shipper.
+- name: Check whether the vector user exists
+  ansible.builtin.getent:
+    database: passwd
+    key: vector
+    fail_key: false
+  register: auditd_vector_user
+  when: auditd_enabled
+- name: Set fact for audit log ACL enablement
+  ansible.builtin.set_fact:
+    auditd_log_acl_enabled: >-
+      {{ (auditd_vector_user.ansible_facts.getent_passwd['vector'] | default(false)) is truthy }}
+  when: auditd_enabled
+- name: Grant vector read+traverse on the audit log directory
+  ansible.posix.acl:
+    path: /var/log/audit
+    entity: vector
+    etype: user
+    permissions: rx
+    state: present
+  when: auditd_log_acl_enabled | bool
+  notify: Restart audit log shipper
+- name: Default ACL so rotated audit log files inherit shipper access
+  ansible.posix.acl:
+    path: /var/log/audit
+    entity: vector
+    etype: user
+    permissions: r
+    default: true
+    state: present
+  when: auditd_log_acl_enabled | bool
+  notify: Restart audit log shipper
+# auditd may have created the live audit.log before this role applied the
+# directory ACLs; grant it explicitly so the shipper does not have to wait
+# for a rotation.
+- name: Stat current audit.log
+  ansible.builtin.stat:
+    path: /var/log/audit/audit.log
+  register: auditd_log_file
+  when: auditd_log_acl_enabled | bool
+- name: Grant vector read on the current audit.log
+  ansible.posix.acl:
+    path: /var/log/audit/audit.log
+    entity: vector
+    etype: user
+    permissions: r
+    state: present
+  when:
+    - auditd_log_acl_enabled | bool
+    - auditd_log_file.stat.exists | default(false)
+  notify: Restart audit log shipper
+- name: Template vector audit scraper
+  ansible.builtin.template:
+    src: vector-auditd.yaml.j2
+    dest: /etc/vector/auditd.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  when: auditd_enabled
+  notify: Reload vector
