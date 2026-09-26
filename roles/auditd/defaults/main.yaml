@@ -8,6 +8,11 @@ auditd_enabled: true
 # required. Set false to allow live rule changes at the cost of runtime
 # tamperability.
 auditd_immutable: true
+# Make loginuid (auid) immutable once set (--loginuid-immutable), so root
+# cannot rewrite who a session belongs to. Locked in the kernel together
+# with the ruleset. Disable on hosts where containers or LXC guests need to
+# set their own loginuid through pam_loginuid.
+auditd_loginuid_immutable: true
 # Watch access to the docker socket. Dev hosts run docker and every docker
 # CLI call touches the socket, so this is informational (dashboards), not
 # alerted.

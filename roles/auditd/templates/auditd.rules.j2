@@ -4,6 +4,12 @@
 ##
 ## Only watches on paths that exist on this host are rendered: a watch on a
 ## missing path makes auditd refuse to load the ruleset.
+{% if auditd_loginuid_immutable %}
+
+## Once set, a process's loginuid (auid) cannot be changed, not even by
+## root, so events stay attributable to the user who logged in.
+--loginuid-immutable
+{% endif %}
 
 ## /etc and its high-signal files (dedicated keys so the central alerts can
 ## tell them apart from the bulk /etc watch)
@@ -22,30 +28,33 @@
 ## in a filterable syscall argument, so all binds are audited and AF_UNIX
 ## (dbus, systemd) is filtered in the transform instead - it has no
 ## laddr/lport, so it cannot trip the wildcard-listen alerts.
+##
+## Every syscall rule has a b32 twin: 64-bit rules do not see syscalls made
+## through the 32-bit ABI. Twins sit right after their b64 rule so that a
+## rejected line drops the following keys and trips the role's key check.
 -a always,exit -F arch=b64 -S bind -k nbind
+-a always,exit -F arch=b32 -S bind -k nbind
 
-## Account management tooling. Placed before rootexec: the first matching
-## rule sets the event's key, so without this ordering every root execve
-## (including these) would be recorded as rootexec.
--a always,exit -F arch=b64 -S execve -F exe=/usr/sbin/useradd -k acctmgmt
--a always,exit -F arch=b64 -S execve -F exe=/usr/sbin/usermod -k acctmgmt
--a always,exit -F arch=b64 -S execve -F exe=/usr/sbin/groupadd -k acctmgmt
--a always,exit -F arch=b64 -S execve -F exe=/usr/sbin/groupmod -k acctmgmt
--a always,exit -F arch=b64 -S execve -F exe=/usr/sbin/chpasswd -k acctmgmt
--a always,exit -F arch=b64 -S execve -F exe=/usr/bin/passwd -k acctmgmt
-
-## Every process executed with effective uid 0
--a always,exit -F arch=b64 -S execve -F euid=0 -k rootexec
+## Account management tooling
+{% for exe in ['/usr/sbin/useradd', '/usr/sbin/usermod', '/usr/sbin/groupadd', '/usr/sbin/groupmod', '/usr/sbin/chpasswd', '/usr/bin/passwd'] %}
+-a always,exit -F arch=b64 -S execve -F exe={{ exe }} -k acctmgmt
+-a always,exit -F arch=b32 -S execve -F exe={{ exe }} -k acctmgmt
+{% endfor %}
 
 ## Kernel module loading (rootkit / eBPF signal)
 -a always,exit -F arch=b64 -S init_module -S finit_module -k modload
+-a always,exit -F arch=b32 -S init_module -S finit_module -k modload
 
 ## Process tracing / injection (devs use gdb and strace, so the central
 ## alert for this is warning-level)
 -a always,exit -F arch=b64 -S ptrace -k ptrace
+-a always,exit -F arch=b32 -S ptrace -k ptrace
 
-## Clock tampering
--a always,exit -F arch=b64 -S clock_settime -S adjtimex -S settimeofday -k time
+## Clock tampering. adjtimex is left out on purpose: node_exporter, chrony
+## and do-agent call it constantly to read the clock, and reads cannot be
+## told apart from writes in-kernel (the mode sits behind a pointer).
+-a always,exit -F arch=b64 -S clock_settime -S settimeofday -k time
+-a always,exit -F arch=b32 -S clock_settime -S settimeofday -k time
 
 {% if auditd_immutable %}
 ## Lock the ruleset in the kernel. From here on any change requires a

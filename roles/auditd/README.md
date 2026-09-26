@@ -13,10 +13,15 @@ VictoriaLogs sink through the existing `vector` setup (drop-in config at
 | `sudoers`, `acct`, `pam`, `sshcfg` | dedicated keys on sudoers, account files, PAM and sshd config |
 | `sshkeys` | every `~/.ssh` directory (root + all real user accounts) |
 | `nbind` | `bind()` on AF_INET/AF_INET6; the kernel's `SOCKADDR` record carries the bound address (normalised to `bind_addr`/`bind_port` by the vector transform) |
-| `rootexec` | every `execve` with `euid=0` (ENRICHED adds the command line) |
 | `acctmgmt` | execution of useradd/usermod/groupadd/groupmod/chpasswd/passwd |
 | `cron`, `systemd`, `root` | persistence locations (crontabs, systemd units, root home) |
-| `modload`, `ptrace`, `time` | kernel module loads, process tracing, clock changes |
+| `modload`, `ptrace`, `time` | kernel module loads, process tracing, clock changes (`clock_settime`/`settimeofday`; `adjtimex` is skipped because monitoring agents call it constantly to read the clock) |
+
+All syscall rules exist for both the 64-bit and the 32-bit ABI. Root
+`execve` is deliberately not audited: most hosts are operated as root, so a
+per-exec rule mostly records monitoring agents and config management runs.
+With `auditd_loginuid_immutable` (default on) a session's `auid` cannot be
+changed once set.
 | `auditself` | the audit config and log directory themselves |
 | `docks` | docker socket access (only when `auditd_watch_docker_sock` is true) |
 

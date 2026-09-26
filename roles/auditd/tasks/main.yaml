@@ -96,7 +96,7 @@
     auditd_expected_keys: >-
       {{ (auditd_watches_existing | map(attribute='key') | list)
          + (['sshkeys'] if auditd_ssh_key_dirs_existing | length > 0 else [])
-         + ['nbind', 'rootexec', 'acctmgmt', 'modload', 'ptrace', 'time'] }}
+         + ['nbind', 'acctmgmt', 'modload', 'ptrace', 'time'] }}
   when: auditd_enabled
 - name: Ensure audit log directory exists
   ansible.builtin.file:
@@ -271,6 +271,18 @@
     path: /var/log/audit/audit.log
   register: auditd_log_file
   when: auditd_log_acl_enabled | bool
+# A live audit.log created before log_group was set is 0600 root:root;
+# fix it in place instead of waiting for the next rotation.
+- name: Set group and mode on the current audit.log
+  ansible.builtin.file:
+    path: /var/log/audit/audit.log
+    owner: root
+    group: adm
+    mode: "0640"
+  when:
+    - auditd_log_acl_enabled | bool
+    - auditd_log_file.stat.exists | default(false)
+  notify: Restart audit log shipper
 - name: Grant vector read on the current audit.log
   ansible.posix.acl:
     path: /var/log/audit/audit.log

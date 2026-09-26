@@ -9,6 +9,11 @@ local_events = yes
 ## Log file to use.
 log_file = /var/log/audit/audit.log
 
+## Group owner of the log files. With the default (root) auditd creates
+## every rotated file 0600, which zeroes the ACL mask and silently revokes
+## the vector user's read ACL; with a group set it creates them 0640.
+log_group = adm
+
 ## ENRICHED resolves uids to user names and pids to executable paths, which
 ## the central LogQL alerts and dashboards query on.
 log_format = {{ auditd_log_format }}
