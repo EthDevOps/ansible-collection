@@ -24,11 +24,13 @@
 # usable home or with a nologin shell cannot meaningfully hold SSH keys;
 # the stat step below drops any directory that does not exist anyway.
 - name: Collect candidate ssh key directories
-  ansible.builtin.shell: |
-    set -o pipefail
-    getent passwd | awk -F: '
-        $6 != "" && $6 != "/" && $6 != "/nonexistent" && $6 != "/bin" && $6 != "/usr/sbin" &&
-        $7 != "/usr/sbin/nologin" && $7 != "/bin/false" && $7 != "/sbin/nologin" { print $6 "/.ssh" }'
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      getent passwd | awk -F: '
+          $6 != "" && $6 != "/" && $6 != "/nonexistent" && $6 != "/bin" && $6 != "/usr/sbin" &&
+          $7 != "/usr/sbin/nologin" && $7 != "/bin/false" && $7 != "/sbin/nologin" { print $6 "/.ssh" }'
+    executable: /bin/bash
   register: auditd_ssh_key_dirs_raw
   changed_when: false
   when: auditd_enabled
