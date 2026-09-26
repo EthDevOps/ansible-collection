@@ -13,6 +13,7 @@ Default variables are defined in [defaults/main.yaml](defaults/main.yaml)
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `bootstrap_additional_users` | List of additional users to create | `[]` |
+| `bootstrap_default_user_sshkeys` | List of SSH public keys to install in the default user's `authorized_keys` | `[]` |
 | `bootstrap_storage_optimized` | Enable storage optimizations | `false` |
 | `bootstrap_default_locale` | System locale. Removes stale `LC_*` overrides from `/etc/default/locale` and `/etc/environment`, sets `LANG`, and (for locales other than `C`/`C.UTF-8`) installs the `locales` package and generates the locale via `locale-gen` | `C.UTF-8` |
 

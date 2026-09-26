@@ -17,6 +17,12 @@
     name: "{{ bootstrap_default_user }}"
     groups: sudo
     append: true
+- name: Add default SSH keys for the default user
+  ansible.posix.authorized_key:
+    user: "{{ bootstrap_default_user }}"
+    state: present
+    key: "{{ item }}"
+  loop: "{{ bootstrap_default_user_sshkeys }}"
 - name: Ensure users are present
   ansible.builtin.user:
     name: "{{ item.name }}"
