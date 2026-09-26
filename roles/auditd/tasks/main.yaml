@@ -61,8 +61,18 @@
   ansible.builtin.set_fact:
     auditd_watches_effective: >-
       {{ auditd_watches
-         + ([{'path': '/var/run/docker.sock', 'perm': 'rwak', 'key': 'docks'}]
+         + ([{'path': '/var/run/docker.sock', 'perm': 'rwa', 'key': 'docks'}]
             if auditd_watch_docker_sock else []) }}
+  when: auditd_enabled
+# auditctl stops loading the ruleset at the first invalid line, silently
+# dropping every rule after it.
+- name: Verify watch permissions are valid
+  ansible.builtin.assert:
+    that: item.perm is match('^[rwxa]+$')
+    fail_msg: "Watch on {{ item.path }} has invalid perm '{{ item.perm }}' (allowed: r, w, x, a)"
+  loop: "{{ auditd_watches_effective }}"
+  loop_control:
+    label: "{{ item.path }}"
   when: auditd_enabled
 - name: Check which watch paths exist
   ansible.builtin.stat:
@@ -153,6 +163,24 @@
          else ('1' if auditd_auditctl_status.stdout is search('enabled\s*=?\s*1')
                else '0') }}
   when: auditd_enabled
+# Keys are verified before locking so a partially loaded ruleset is never
+# locked in until reboot.
+- name: Read active audit rules
+  ansible.builtin.command: auditctl -l
+  register: auditd_auditctl_rules
+  changed_when: false
+  when: auditd_enabled
+# auditctl -l prints watch rules as "-k <key>" and syscall rules as
+# "key=<key>"; match both.
+- name: Verify all expected audit keys are active
+  ansible.builtin.assert:
+    that: auditd_auditctl_rules.stdout is search('(?:-k |key=)' ~ item ~ '(?:\s|$)')
+    fail_msg: >-
+      Audit rule with key '{{ item }}' is not active in the kernel. If the
+      rules changed recently and auditd_immutable is true, the ruleset is
+      locked and the new rules apply after a reboot.
+  loop: "{{ auditd_expected_keys | unique }}"
+  when: auditd_enabled
 # The kernel flag is not managed by auditd: a fresh daemon comes up with
 # the flag at 1 (local_events) and only a locked (2) state is preserved
 # across restarts. Locking happens here, after the rules are loaded,
@@ -190,11 +218,6 @@
     - auditd_enabled
     - not auditd_immutable
     - auditd_enabled_flag == '2'
-- name: Read active audit rules
-  ansible.builtin.command: auditctl -l
-  register: auditd_auditctl_rules
-  changed_when: false
-  when: auditd_enabled
 - name: Verify auditd enabled flag matches auditd_immutable
   ansible.builtin.assert:
     that: auditd_enabled_flag == ((2 if auditd_immutable else 1) | string)
@@ -206,17 +229,6 @@
   when:
     - auditd_enabled
     - not (not auditd_immutable and auditd_enabled_flag == '2')
-# auditctl -l prints watch rules as "-k <key>" and syscall rules as
-# "key=<key>"; match both.
-- name: Verify all expected audit keys are active
-  ansible.builtin.assert:
-    that: auditd_auditctl_rules.stdout is search('(?:-k |key=)' ~ item ~ '(?:\s|$)')
-    fail_msg: >-
-      Audit rule with key '{{ item }}' is not active in the kernel. If the
-      rules changed recently and auditd_immutable is true, the ruleset is
-      locked and the new rules apply after a reboot.
-  loop: "{{ auditd_expected_keys | unique }}"
-  when: auditd_enabled
 # The vector user needs read access to the audit log. The stock 0750
 # root:adm directory is otherwise left untouched - same ACL approach as the
 # k3s audit log shipper.
