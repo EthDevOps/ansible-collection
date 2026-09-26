@@ -121,9 +121,9 @@
 - name: Warn that audit rule changes require a reboot
   ansible.builtin.debug:
     msg: >-
-      Audit rules changed but the audit system is locked (-e 2). auditd
-      keeps running with the current ruleset; the new rules take effect
-      after a reboot.
+      Audit rules changed but auditd was not restarted (auditd_immutable
+      is set). The running daemon keeps the current ruleset; the new rules
+      take effect after a reboot.
   when:
     - auditd_enabled
     - auditd_rules_template.changed
@@ -144,6 +144,36 @@
   register: auditd_auditctl_status
   changed_when: false
   when: auditd_enabled
+# auditctl -s prints "enabled 2" on recent auditd and "enabled = 2" on
+# older versions; parse both so the flag can be compared numerically.
+- name: Parse active audit enabled flag
+  ansible.builtin.set_fact:
+    auditd_enabled_flag: >-
+      {{ '2' if auditd_auditctl_status.stdout is search('enabled\s*=?\s*2')
+         else ('1' if auditd_auditctl_status.stdout is search('enabled\s*=?\s*1')
+               else '0') }}
+  when: auditd_enabled
+# The kernel flag is not managed by auditd: a fresh daemon comes up with
+# the flag at 1 (local_events) and only a locked (2) state is preserved
+# across restarts. Locking happens here, after the rules are loaded,
+# because a locked kernel rejects rule changes until reboot.
+- name: Lock the audit system in the kernel
+  ansible.builtin.command: auditctl -e 2
+  when:
+    - auditd_enabled
+    - auditd_immutable
+    - auditd_enabled_flag != '2'
+# 2 -> 1 cannot be done live; the kernel refuses to unlock while locked.
+- name: Warn that unlocking the audit system requires a reboot
+  ansible.builtin.debug:
+    msg: >-
+      auditd_immutable is false but the kernel audit flag is still locked
+      (2). The kernel only unlocks it on a reboot; the flag is re-verified
+      on the next run after that.
+  when:
+    - auditd_enabled
+    - not auditd_immutable
+    - auditd_enabled_flag == '2'
 - name: Read active audit rules
   ansible.builtin.command: auditctl -l
   register: auditd_auditctl_rules
@@ -151,12 +181,15 @@
   when: auditd_enabled
 - name: Verify auditd enabled flag matches auditd_immutable
   ansible.builtin.assert:
-    that: auditd_auditctl_status.stdout is search("enabled = " ~ (2 if auditd_immutable else 1))
+    that: auditd_enabled_flag == ((2 if auditd_immutable else 1) | string)
     fail_msg: >-
-      auditd 'enabled' flag is not {{ 2 if auditd_immutable else 1 }}. If
-      auditd_immutable was just changed, the kernel flag updates on the next
-      auditd restart or reboot. Active state: {{ auditd_auditctl_status.stdout | trim }}
-  when: auditd_enabled
+      auditd 'enabled' flag is {{ auditd_enabled_flag }}, expected
+      {{ 2 if auditd_immutable else 1 }}. Active state: {{ auditd_auditctl_status.stdout | trim }}
+  # The 2 -> 1 case is only fixable by reboot and is already warned about
+  # above, so it must not fail the run.
+  when:
+    - auditd_enabled
+    - not (not auditd_immutable and auditd_enabled_flag == '2')
 # auditctl -l prints watch rules as "-k <key>" and syscall rules as
 # "key=<key>"; match both.
 - name: Verify all expected audit keys are active
