@@ -159,29 +159,26 @@
 # because a locked kernel rejects rule changes until reboot.
 - name: Lock the audit system in the kernel
   ansible.builtin.command: auditctl -e 2
-  register: auditd_lock_result
   when:
     - auditd_enabled
     - auditd_immutable
     - auditd_enabled_flag != '2'
-# The read and fact above predate the lock; refresh both so the verify
-# task sees the post-lock kernel state.
+# The read and fact above predate the lock; refresh both unconditionally so
+# the verify task always sees the post-lock kernel state and the registered
+# output always has a stdout for the fail message (a skipped re-read would
+# overwrite it with a dict that has none).
 - name: Re-read active audit configuration after locking
   ansible.builtin.command: auditctl -s
   register: auditd_auditctl_status
   changed_when: false
-  when:
-    - auditd_enabled
-    - auditd_lock_result is changed
+  when: auditd_enabled
 - name: Re-parse active audit enabled flag after locking
   ansible.builtin.set_fact:
     auditd_enabled_flag: >-
       {{ '2' if auditd_auditctl_status.stdout is search('enabled\s*=?\s*2')
          else ('1' if auditd_auditctl_status.stdout is search('enabled\s*=?\s*1')
                else '0') }}
-  when:
-    - auditd_enabled
-    - auditd_lock_result is changed
+  when: auditd_enabled
 # 2 -> 1 cannot be done live; the kernel refuses to unlock while locked.
 - name: Warn that unlocking the audit system requires a reboot
   ansible.builtin.debug:
