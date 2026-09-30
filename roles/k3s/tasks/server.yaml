@@ -1,11 +1,4 @@
 ---
-- name: Find host with k3s_bootstrap defined
-  ansible.builtin.set_fact:
-    k3s_bootstrap_host: "{{ item }}"
-  loop: "{{ groups['device_roles_k3s-server'] | map('extract', hostvars) | selectattr('k3s_bootstrap', 'defined') | list }}"
-  when: k3s_bootstrap_host is not defined
-  loop_control:
-    label: "{{ item.inventory_hostname }}"
 - name: Set bootstrap
   when: k3s_bootstrap is not defined
   ansible.builtin.set_fact:
@@ -140,12 +133,18 @@
     name: k3s-server
   register: k3s_server_state
 - name: Enable and check K3s server # noqa: no-handler
+  # k3s_upgrade=true (version bump) forces the restart: the unit file does
+  # not carry the version, so a binary swap alone would never take effect.
+  # throttle: 1 keeps the embedded-etcd members from restarting in parallel.
   ansible.builtin.systemd:
     name: k3s-server
     state: restarted
     enabled: true
   throttle: 1
-  when: k3s_service.changed or k3s_server_state.status.ActiveState != 'active'
+  when: >-
+    k3s_service.changed
+    or k3s_server_state.status.ActiveState != 'active'
+    or k3s_upgrade | default(false) | bool
 - name: Wait for k3s server to be ready after restart # noqa: no-handler
   ansible.builtin.command: k3s kubectl get nodes
   register: k3s_ready
@@ -154,7 +153,10 @@
   delay: 10
   changed_when: false
   throttle: 1
-  when: k3s_service.changed or k3s_server_state.status.ActiveState != 'active'
+  when: >-
+    k3s_service.changed
+    or k3s_server_state.status.ActiveState != 'active'
+    or k3s_upgrade | default(false) | bool
 # The default ACL handles future rotations, but k3s already created the
 # live audit.log before this role applied ACLs to its parent directory —
 # explicitly grant the reader access on the current file so the shipper

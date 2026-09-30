@@ -1,4 +1,50 @@
 ---
+# A version mismatch between the installed binary and k3s_version is only
+# acted on when the caller opts in with k3s_upgrade=true. Swapping the binary
+# of a running cluster during a normal run would leave the old version running
+# until the next (possibly unplanned) reboot, so the default is to warn and
+# leave the installed binary alone.
+- name: Check whether the k3s binary is installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+- name: Record the installed k3s binary version
+  ansible.builtin.command: /usr/local/bin/k3s --version
+  register: k3s_binary_version_raw
+  changed_when: false
+  failed_when: false
+  when: k3s_binary.stat.exists
+# "k3s version v1.35.4+k3s1 (<commit>)" → the token that starts with v
+- name: Set fact for the installed binary version
+  ansible.builtin.set_fact:
+    k3s_binary_version: >-
+      {{ k3s_binary_version_raw.stdout.split(' ')
+         | select('match', '^v\d+\.\d+\.\d+') | list | first | default('') }}
+  when:
+    - k3s_binary.stat.exists
+    - k3s_binary_version_raw.rc | default(1) == 0
+- name: Set fact for whether the binary should be (re)downloaded
+  # Wanted when there is no binary yet, when the installed binary already
+  # matches the pin (first run / converged), or when the caller opted into an
+  # upgrade with k3s_upgrade=true.
+  ansible.builtin.set_fact:
+    k3s_binary_download_wanted: >-
+      {{ not k3s_binary.stat.exists
+         or (k3s_binary_version | default('') == k3s_version)
+         or k3s_upgrade | default(false) | bool }}
+- name: Warn about a k3s binary/pin mismatch that will not be acted on
+  # ansible.builtin.warn is not resolvable by ansible-lint's syntax check, so
+  # surface the warning through debug instead.
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: /usr/local/bin/k3s is {{ k3s_binary_version | default('unknown') }}
+      but k3s_version is {{ k3s_version }}. Not downloading: swapping the binary
+      of a running cluster without a supervised cordon/drain/restart would
+      apply on the next unplanned reboot. Set k3s_upgrade=true to upgrade this
+      node, or align k3s_version with the installed version.
+  when:
+    - k3s_binary.stat.exists
+    - not k3s_binary_download_wanted
 - name: Download k3s binary x64
   ansible.builtin.get_url:
     url: https://github.com/k3s-io/k3s/releases/download/{{ k3s_version }}/k3s
@@ -7,7 +53,9 @@
     owner: root
     group: root
     mode: "0755"
-  when: ansible_facts.architecture == "x86_64"
+  when:
+    - ansible_facts.architecture == "x86_64"
+    - k3s_binary_download_wanted
 - name: Download k3s binary arm64
   ansible.builtin.get_url:
     url: https://github.com/k3s-io/k3s/releases/download/{{ k3s_version }}/k3s-arm64
@@ -20,6 +68,7 @@
     - ( ansible_facts.architecture is search("arm") and
         ansible_facts.userspace_bits == "64" ) or
       ansible_facts.architecture is search("aarch64")
+    - k3s_binary_download_wanted
 - name: Download k3s binary armhf
   ansible.builtin.get_url:
     url: https://github.com/k3s-io/k3s/releases/download/{{ k3s_version }}/k3s-armhf
@@ -31,3 +80,4 @@
   when:
     - ansible_facts.architecture is search("arm")
     - ansible_facts.userspace_bits == "32"
+    - k3s_binary_download_wanted

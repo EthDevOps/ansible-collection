@@ -1,4 +1,4 @@
-# ethpandaops.general.k3s
+# ethdevops.infrastructure.k3s
 
 This role is based on https://github.com/k3s-io/k3s-ansible/ and will install [k3s](https://github.com/k3s-io/k3s) on your system.
 
@@ -30,7 +30,7 @@ Your playbook could look like this:
 - hosts: k3s_cluster
   become: true
   roles:
-    - role: ethpandaops.general.k3s
+    - role: ethdevops.infrastructure.k3s
 ```
 
 With an inventory like:

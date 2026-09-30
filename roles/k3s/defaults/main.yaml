@@ -5,7 +5,14 @@ k3s_network_backend: host-gw
 # server nodes. Pinned to a fixed user instead of the Ansible connection
 # user, so the location and permissions are deterministic.
 k3s_user: root
-k3s_version: v1.31.5+k3s1
+k3s_version: v1.35.8+k3s1
+# Set true to let the role upgrade a running cluster to k3s_version: the new
+# binary is downloaded even when the installed one differs, and the k3s
+# service is restarted afterwards (servers one at a time, agents throttled).
+# Leave false for normal runs — a version mismatch then only produces a
+# warning, because swapping the binary of a running cluster without a
+# supervised cordon/drain/restart would apply on the next unplanned reboot.
+k3s_upgrade: false
 k3s_systemd_dir: /etc/systemd/system
 k3s_server_location: /var/lib/rancher/k3s
 k3s_server_ip: "{{ hostvars[groups['k3s_server'][0]]['ansible_host'] | default(groups['k3s_server'][0]) }}"

@@ -6,9 +6,29 @@
     owner: root
     group: root
     mode: "0644"
-- name: Enable and check K3s service
+  register: k3s_agent_service
+- name: Enable and check K3s service # noqa: no-handler
+  # Only restart when the unit changed (or the caller opted into a version
+  # upgrade with k3s_upgrade=true): agents used to restart on every playbook
+  # run, churning pods fleet-wide for no reason. throttle: 1 keeps restarts
+  # serial so a large fleet does not flood the API with node churn at once.
   ansible.builtin.systemd:
     name: k3s-agent
     daemon_reload: true
     state: restarted
     enabled: true
+  throttle: 1
+  when: >-
+    k3s_agent_service.changed
+    or k3s_upgrade | default(false) | bool
+- name: Wait for the agent to register with the cluster # noqa: no-handler
+  ansible.builtin.command: k3s kubectl get nodes
+  register: k3s_agent_ready
+  until: k3s_agent_ready.rc == 0
+  retries: 30
+  delay: 10
+  changed_when: false
+  throttle: 1
+  when: >-
+    k3s_agent_service.changed
+    or k3s_upgrade | default(false) | bool
