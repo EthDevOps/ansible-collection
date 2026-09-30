@@ -19,6 +19,9 @@ haproxy_lb_k8s_services: []
 #   - K8s TCP services: "tcp_cluster_namespace_servicename" (e.g., "tcp_prod_default_postgres")
 #   - Domain groups: domain name (e.g., "example.com")
 haproxy_lb_backend_extra_config: {}
+# Exact haproxy-awslc version to pin via /etc/apt/preferences.d (blocks
+# dist-upgrade / unattended-upgrades too). Empty = unpinned, latest from repo.
+haproxy_lb_awslc_version: ""
 haproxy_lb_quic_enabled: false
 haproxy_lb_cache_enabled: false
 # When true, the :80 frontend redirects HTTP -> HTTPS (301) for any service

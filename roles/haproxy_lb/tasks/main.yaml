@@ -46,10 +46,25 @@
       apt-get update reported errors; continuing with the existing cache.
       If haproxy-awslc is not already installed this next step will fail.
       Details: {{ haproxy_lb_apt_update_post.msg | default(haproxy_lb_apt_update_post.stderr | default('unknown')) }}
+- name: Pin haproxy-awslc version
+  ansible.builtin.copy:
+    dest: /etc/apt/preferences.d/haproxy-awslc
+    mode: "0644"
+    content: |
+      Package: haproxy-awslc
+      Pin: version {{ haproxy_lb_awslc_version }}
+      Pin-Priority: 1001
+  when: haproxy_lb_awslc_version | length > 0
+- name: Unpin haproxy-awslc version
+  ansible.builtin.file:
+    path: /etc/apt/preferences.d/haproxy-awslc
+    state: absent
+  when: haproxy_lb_awslc_version | length == 0
 - name: Install haproxy with AWS-LC
   ansible.builtin.apt:
     pkg:
-      - haproxy-awslc
+      - "haproxy-awslc{{ '=' ~ haproxy_lb_awslc_version if haproxy_lb_awslc_version | length > 0 else '' }}"
+    allow_downgrade: "{{ haproxy_lb_awslc_version | length > 0 }}"
 - name: Set cap_net_bind_service for QUIC UDP binding
   community.general.capabilities:
     path: /usr/sbin/haproxy
