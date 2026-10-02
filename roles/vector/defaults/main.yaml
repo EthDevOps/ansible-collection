@@ -4,6 +4,8 @@ vector_install_nodexporter: true
 vector_version: "0.57.0-1"
 vector_use_openbao: false
 # OpenBao/Vault secret configuration
-vector_vault_secret_path: "secret/common/metric_ingress"
+# Explicit KV v2 data path: without /data/, an agent whose mount-type preflight
+# times out falls back to the v1 path and loops on 403 until re-auth.
+vector_vault_secret_path: "secret/common/data/metric_ingress"
 vector_vault_user_field: "metrics_username"
 vector_vault_password_field: "metrics_password"
