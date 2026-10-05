@@ -15,11 +15,6 @@
       - acl
     state: present
   when: auditd_enabled
-- name: Get current auditd service state
-  ansible.builtin.systemd:
-    name: auditd
-  register: auditd_service_state
-  when: auditd_enabled
 # getent passwd columns: 6 = home directory, 7 = shell. Accounts without a
 # usable home or with a nologin shell cannot meaningfully hold SSH keys;
 # the stat step below drops any directory that does not exist anyway.
@@ -123,32 +118,55 @@
     group: root
     mode: "0640"
   when: auditd_enabled
-  register: auditd_rules_template
-# With -e 2 the kernel rejects rule changes until reboot. Restarting auditd
-# here would make it fail to load the new ruleset and drop the daemon,
+# augenrules compiles rules.d into /etc/audit/audit.rules when auditd starts,
+# so a difference between the two means our rules were never loaded. Unlike
+# the template's changed flag, this also catches a run that died between
+# templating and restarting.
+- name: Check whether audit rules are pending a load
+  ansible.builtin.command: augenrules --check
+  register: auditd_augenrules_check
+  changed_when: false
+  when: auditd_enabled
+- name: Check whether the audit ruleset is locked in the kernel
+  ansible.builtin.command: auditctl -s
+  register: auditd_pre_restart_status
+  changed_when: false
+  when: auditd_enabled
+- name: Set fact for pending audit rules and kernel lock
+  ansible.builtin.set_fact:
+    auditd_rules_pending: "{{ auditd_augenrules_check.stdout is not search('No change') }}"
+    auditd_kernel_locked: "{{ auditd_pre_restart_status.stdout is search('enabled\\s*=?\\s*2') }}"
+  when: auditd_enabled
+# A locked kernel (-e 2) rejects rule changes until reboot. Restarting auditd
+# then would make it fail to load the new ruleset and drop the daemon,
 # opening a logging gap while the old rules are still active in the kernel.
 # The running daemon is left alone; the new rules apply on the next reboot.
+# A fresh install starts auditd unlocked with the stock ruleset, so it is
+# restarted to load ours.
 - name: Warn that audit rule changes require a reboot
   ansible.builtin.debug:
     msg: >-
-      Audit rules changed but auditd was not restarted (auditd_immutable
-      is set). The running daemon keeps the current ruleset; the new rules
-      take effect after a reboot.
+      Audit rules changed but the ruleset is locked in the kernel, so auditd
+      was not restarted. The running daemon keeps the current ruleset; the
+      new rules take effect after a reboot.
   when:
     - auditd_enabled
-    - auditd_rules_template.changed
-    - auditd_immutable
-    - auditd_service_state.status.ActiveState | default('inactive') == 'active'
-- name: Restart auditd
+    - auditd_rules_pending
+    - auditd_kernel_locked
+- name: Ensure auditd is enabled and running
+  ansible.builtin.systemd:
+    name: auditd
+    state: started
+    enabled: true
+  when: auditd_enabled
+- name: Restart auditd to load changed audit rules
   ansible.builtin.systemd:
     name: auditd
     state: restarted
-    enabled: true
   when:
     - auditd_enabled
-    - not (auditd_rules_template.changed
-           and auditd_immutable
-           and auditd_service_state.status.ActiveState | default('inactive') == 'active')
+    - auditd_rules_pending
+    - not auditd_kernel_locked
 - name: Read active audit configuration
   ansible.builtin.command: auditctl -s
   register: auditd_auditctl_status
