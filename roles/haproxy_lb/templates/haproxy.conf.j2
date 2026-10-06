@@ -99,6 +99,24 @@ frontend prometheus
 {% endfor %}
 {% endfor %}
 {% endif %}
+{# Domains fronted via Warpgate: all route to the single `warpgate` backend. #}
+{% set warpgate_domains = [] %}
+{% if haproxy_lb_warpgate_host | default('') | length > 0 %}
+{% for cluster in haproxy_lb_k8s_services %}
+{% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/warpgate-expose"] | default('') == "web" and svc.metadata.annotations["ethquokkaops.io/domain"] is defined %}
+{% for domain in svc.metadata.annotations["ethquokkaops.io/domain"].split(',') | map('trim') | list %}
+{% set _ = warpgate_domains.append({'domain': domain, 'allow_http': svc.metadata.annotations["ethquokkaops.io/allow-http"] | default('') == "true"}) %}
+{% endfor %}
+{% endfor %}
+{% endfor %}
+{% for host, hostvars in lb_hostvars.items() %}
+{% for svc in hostvars.services if svc.custom_fields.expose_mode | default('') == "internal" and svc.custom_fields.expose_domain %}
+{% for domain in svc.custom_fields.expose_domain.split(',') | map('trim') | list %}
+{% set _ = warpgate_domains.append({'domain': domain, 'allow_http': svc.custom_fields.allow_http | default('') == "true"}) %}
+{% endfor %}
+{% endfor %}
+{% endfor %}
+{% endif %}
 
 {% if haproxy_lb_sites and haproxy_lb_sites|length > 0 %}
 frontend http
@@ -673,3 +691,26 @@ backend {{ backend_name }}
     {% endif %}
 
 {% endfor %}
+{% if haproxy_lb_warpgate_host | default('') | length > 0 %}
+
+{# Warpgate picks the target from Host/SNI; its cert won't match, hence verify none. #}
+backend warpgate
+    option forwardfor
+    option forwarded
+
+    # keep websockets around for 2h
+    timeout tunnel 2h
+
+    # only keep clients in the connection queue for 1 minute
+    timeout queue 60s
+
+    http-request set-header X-Forwarded-Port %[dst_port]
+    http-request add-header X-Forwarded-Proto https if { ssl_fc }
+
+    default-server check fall 3 rise 2 ssl verify none sni req.hdr(host) alpn h2,http/1.1
+    {% if haproxy_lb_backend_extra_config is defined and 'warpgate' in haproxy_lb_backend_extra_config %}
+    # Custom backend configuration
+{{ haproxy_lb_backend_extra_config['warpgate'] | indent(4, first=True) }}
+    {% endif %}
+    server warpgate {{ haproxy_lb_warpgate_host }}:{{ haproxy_lb_warpgate_port }}
+{% endif %}

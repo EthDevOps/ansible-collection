@@ -34,3 +34,9 @@ haproxy_lb_force_https: false
 # `dontlog-normal`). Used to discover which clients are still hitting HTTP
 # before enabling haproxy_lb_force_https.
 haproxy_lb_log_http_requests: true
+# When set, a single `warpgate` backend (HTTPS, verify none) is generated and
+# services opted in via discovery are routed to it:
+#   - K8s: ethquokkaops.io/warpgate-expose: "web" + ethquokkaops.io/domain
+#   - NetBox: custom_fields.expose_mode: internal + expose_domain
+haproxy_lb_warpgate_host: ""
+haproxy_lb_warpgate_port: 443

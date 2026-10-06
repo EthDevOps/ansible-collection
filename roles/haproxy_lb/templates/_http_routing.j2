@@ -254,3 +254,18 @@
 
    {% endif %}
    {% endfor %}
+   {# Warpgate-fronted services (list built in haproxy.conf.j2). Filter first so
+      use_backend is only emitted when host_warpgate actually gets defined. #}
+   {% set warpgate_routed = warpgate_domains | default([]) | selectattr('allow_http') | list if routing_filter_allow_http else warpgate_domains | default([]) %}
+   {% if warpgate_routed | length > 0 %}
+
+    # START WARPGATE
+    {% for e in warpgate_routed %}
+    acl host_warpgate hdr_dom(host) -i {{ e.domain }}
+    {% if routing_filter_allow_http %}
+    acl is_allow_http hdr_dom(host) -i {{ e.domain }}
+    {% endif %}
+    {% endfor %}
+    use_backend warpgate if host_warpgate
+    # END WARPGATE
+   {% endif %}

@@ -291,6 +291,24 @@ haproxy_lb_tunnels:
 
 **Backend name format:** Tunnel name (e.g., `postgres`)
 
+### 6. Warpgate-fronted Services
+
+HTTP services published through [Warpgate](https://github.com/warp-tech/warpgate) can be reached through HAProxy: user -> haproxy -> warpgate -> service. Setting `haproxy_lb_warpgate_host` creates a single `warpgate` backend, and every discovered domain below is routed to it.
+
+```yaml
+haproxy_lb_warpgate_host: warpgate.example.org   # empty (default) = disabled
+haproxy_lb_warpgate_port: 443
+```
+
+Services are selected by:
+
+- **K8s**: `ethquokkaops.io/warpgate-expose: "web"` together with `ethquokkaops.io/domain` (comma-separated). `ethquokkaops.io/allow-http: "true"` is respected.
+- **NetBox** (`lb_hostvars`): service `custom_fields.expose_mode: internal` together with a non-empty `expose_domain` (comma-separated). `custom_fields.allow_http: "true"` is respected.
+
+HAProxy connects to Warpgate over HTTPS and passes the original Host header and SNI through unchanged. Warpgate's certificate won't match the requested host, so the backend uses `ssl verify none`. Warpgate itself chooses which service to forward to. Like all HTTP routing, this only applies when `haproxy_lb_sites` is non-empty.
+
+**Backend name format:** `warpgate`
+
 ---
 
 ## Redirects (`haproxy_lb_redirects`)
@@ -386,6 +404,7 @@ haproxy_lb_backend_extra_config:
 | K8s HTTP services (multi-port) | `{cluster}_{namespace}_{service}_{portname}` | `prod_monitoring_tempo_tempo_otlp_http` |
 | K8s TCP services | `tcp_{cluster}_{namespace}_{service}` | `tcp_prod_default_postgres` |
 | Domain groups | Domain name | `app.example.com` |
+| Warpgate | `warpgate` | `warpgate` |
 
 ---
 
