@@ -56,7 +56,7 @@ haproxy_lb_clusters:
       - web_tier
 ```
 
-Server IPs are resolved via `lb_hostvars[server]["primary_ip4"]`.
+Server IPs are resolved via `lb_hostvars[server]["primary_ip4"]`. Entries in `nodes` that are not in `lb_hostvars` are used as-is, so a literal IP works (e.g. `- 10.0.0.5`).
 
 ---
 

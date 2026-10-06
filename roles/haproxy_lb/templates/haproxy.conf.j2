@@ -316,9 +316,9 @@ backend {{ site }}
     {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodes"] is defined %}
     {% for server in haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodes %}
     {% if loop.first %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
     {% else %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
     {% endif %}
     {% endfor %}
     {% endif %}
@@ -326,9 +326,9 @@ backend {{ site }}
     {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodeGroup"] is defined %}
     {% for server in groups[haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroup] %}
     {% if loop.first %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
     {% else %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
     {% endif %}
     {% endfor %}
     {% endif %}
@@ -339,9 +339,9 @@ backend {{ site }}
         {% set target_servers = groups[first_group] | intersect(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroups[1:] | map('extract', groups) | list) %}
         {% for server in target_servers %}
         {% if loop.first %}
-        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
+        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
         {% else %}
-        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
+        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
         {% endif %}
         {% endfor %}
     {% endif %}
@@ -351,13 +351,13 @@ backend {{ site }}
 
     {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodes"] is defined %}
     {% for server in haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodes %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
     {% endfor %}
     {% endif %}
 
     {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodeGroup"] is defined %}
     {% for server in groups[haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroup] %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
     {% endfor %}
     {% endif %}
 
@@ -366,7 +366,7 @@ backend {{ site }}
         {% set first_group = haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroups[0] %}
         {% set target_servers = groups[first_group] | intersect(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroups[1:] | map('extract', groups) | list) %}
         {% for server in target_servers %}
-        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
+        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
         {% endfor %}
     {% endif %}
 
@@ -585,13 +585,13 @@ backend tcp_{{ tun }}
 
     {% if haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster]["nodes"] is defined %}
     {% for server in haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster].nodes %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_tunnels[tun].cluster_port }}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_tunnels[tun].cluster_port }}
     {% endfor %}
     {% endif %}
 
     {% if haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster]["nodeGroup"] is defined %}
     {% for server in groups[haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster].nodeGroup] %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_tunnels[tun].cluster_port }}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_tunnels[tun].cluster_port }}
     {% endfor %}
     {% endif %}
 
@@ -614,7 +614,7 @@ backend tcp_{{ tun }}
     {% endif %}
     # FINAL: {{ target_servers | join(', ')}}
     {% for server in target_servers %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] }}:{{ haproxy_lb_tunnels[tun].cluster_port }}
+    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_tunnels[tun].cluster_port }}
     {% endfor %}
     {% endif %}
 
