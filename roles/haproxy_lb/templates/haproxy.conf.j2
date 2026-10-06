@@ -105,7 +105,7 @@ frontend prometheus
 {% for cluster in haproxy_lb_k8s_services %}
 {% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/warpgate-expose"] | default('') == "web" and svc.metadata.annotations["ethquokkaops.io/domain"] is defined %}
 {% for domain in svc.metadata.annotations["ethquokkaops.io/domain"].split(',') | map('trim') | list %}
-{% set _ = warpgate_domains.append({'domain': domain, 'allow_http': svc.metadata.annotations["ethquokkaops.io/allow-http"] | default('') == "true"}) %}
+{% set _ = warpgate_domains.append({'domain': domain, 'allow_http': svc.metadata.annotations["ethquokkaops.io/allow-http"] | default('') == "true", 'gate_host': (svc.metadata.annotations["ethquokkaops.io/warpgate-name"] | default(svc.metadata.namespace ~ '-' ~ svc.metadata.name)) ~ '.' ~ haproxy_lb_warpgate_gate_domain}) %}
 {% endfor %}
 {% endfor %}
 {% endfor %}
@@ -712,5 +712,23 @@ backend warpgate
     # Custom backend configuration
 {{ haproxy_lb_backend_extra_config['warpgate'] | indent(4, first=True) }}
     {% endif %}
+{% set warpgate_rewrites = warpgate_domains | selectattr('gate_host', 'defined') | unique(attribute='domain') | list if haproxy_lb_warpgate_gate_domain | default('') | length > 0 else [] %}
+{% if warpgate_rewrites | length > 0 %}
+    {# Warpgate drops any logged-in session whose Host is not its
+       external_host or a subdomain of it, so a target on its own domain
+       loops back to the login page. Present such hosts as the target's
+       gate name (<warpgate-name>.<gate domain>) instead, except on the SSO
+       paths: there Warpgate must see the real host, so the Google return URL
+       and the host-only session cookie are on the domain the browser uses.
+       On the way back, strip the gate cookie Domain (a browser on the real
+       domain would reject it) and point gate-host redirects at the real host. #}
+    acl wg_sso path_beg /@warpgate/api/sso/
+    {% for e in warpgate_rewrites %}
+    http-request set-var(txn.wg_orig_host) req.hdr(host) if { req.hdr(host),field(1,:) -i {{ e.domain }} } !wg_sso
+    http-request set-header Host {{ e.gate_host }} if { req.hdr(host),field(1,:) -i {{ e.domain }} } !wg_sso
+    {% endfor %}
+    http-response replace-header Set-Cookie ^(.*?);\s*[Dd]omain=\.?{{ haproxy_lb_warpgate_gate_domain | regex_escape }}(;.*)?$ \1\2 if { var(txn.wg_orig_host) -m found }
+    http-response replace-header Location ^https://[^/]+\.{{ haproxy_lb_warpgate_gate_domain | regex_escape }}(/.*)?$ https://%[var(txn.wg_orig_host)]\1 if { var(txn.wg_orig_host) -m found }
+{% endif %}
     server warpgate {{ haproxy_lb_warpgate_host }}:{{ haproxy_lb_warpgate_port }}
 {% endif %}

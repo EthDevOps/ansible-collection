@@ -305,7 +305,19 @@ Services are selected by:
 - **K8s**: `ethquokkaops.io/warpgate-expose: "web"` together with `ethquokkaops.io/domain` (comma-separated). `ethquokkaops.io/allow-http: "true"` is respected.
 - **NetBox** (`lb_hostvars`): service `custom_fields.expose_mode: internal` together with a non-empty `expose_domain` (comma-separated). `custom_fields.allow_http: "true"` is respected.
 
-HAProxy connects to Warpgate over HTTPS and passes the original Host header and SNI through unchanged. Warpgate's certificate won't match the requested host, so the backend uses `ssl verify none`. Warpgate itself chooses which service to forward to. Like all HTTP routing, this only applies when `haproxy_lb_sites` is non-empty.
+HAProxy connects to Warpgate over HTTPS and, unless the gate domain below is set, passes the original Host header and SNI through unchanged. Warpgate's certificate won't match the requested host, so the backend uses `ssl verify none`. Warpgate itself chooses which service to forward to. Like all HTTP routing, this only applies when `haproxy_lb_sites` is non-empty.
+
+**Real domains (`haproxy_lb_warpgate_gate_domain`).** Warpgate drops a logged-in session whose Host is not its `external_host` or a subdomain of it, so a target served on its own domain loops back to the login page. Set the gate domain, and K8s services get rewritten:
+
+```yaml
+haproxy_lb_warpgate_gate_domain: eu.gate.ethdevops.io   # empty (default) = Host passed through
+```
+
+- **Requests:** Host (and therefore SNI) becomes `<name>.<gate domain>`. `<name>` is `ethquokkaops.io/warpgate-name`, else `<namespace>-<service>`, so the Warpgate target's `external_host` must be that name.
+- **SSO exception:** `/@warpgate/api/sso/` keeps the real Host. The Google return URL and the session cookie then land on the domain the browser uses. This needs `return_url_domain: host_header` on the Warpgate SSO provider.
+- **Responses:** the session cookie loses `Domain=.<gate domain>`, so it stays host-only on the real domain. `Location` URLs on the gate domain are mapped back to the requested host.
+
+NetBox services are not rewritten.
 
 **Backend name format:** `warpgate`
 

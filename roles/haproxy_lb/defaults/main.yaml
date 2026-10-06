@@ -40,3 +40,9 @@ haproxy_lb_log_http_requests: true
 #   - NetBox: custom_fields.expose_mode: internal + expose_domain
 haproxy_lb_warpgate_host: ""
 haproxy_lb_warpgate_port: 443
+# Warpgate's own domain, e.g. eu.gate.ethdevops.io. When set, requests for a
+# K8s service's real domain reach Warpgate as <warpgate-name>.<this> (except
+# /@warpgate/api/sso/), because Warpgate only keeps sessions on its
+# external_host and subdomains. The Warpgate target's external_host must be
+# that gate name. Empty = forward the real Host unchanged.
+haproxy_lb_warpgate_gate_domain: ""
