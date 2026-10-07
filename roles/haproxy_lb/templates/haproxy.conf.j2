@@ -730,5 +730,10 @@ backend warpgate
     http-response replace-header Set-Cookie ^(.*?);\s*[Dd]omain=\.?{{ haproxy_lb_warpgate_gate_domain | regex_escape }}(;.*)?$ \1\2 if { var(txn.wg_orig_host) -m found }
     http-response replace-header Location ^https://[^/]+\.{{ haproxy_lb_warpgate_gate_domain | regex_escape }}(/.*)?$ https://%[var(txn.wg_orig_host)]\1 if { var(txn.wg_orig_host) -m found }
 {% endif %}
+    {# Warpgate only stamps SameSite=None on external_host (sub)domains; on any
+       other host the session cookie has no SameSite, so browsers treat it as
+       Lax and drop it from cross-site POSTs, e.g. a SAML/OIDC form_post
+       callback, which Warpgate then bounces to its login with a 307 (-> 405). #}
+    http-response replace-header Set-Cookie '^(warpgate-http-session=(?!.*;\s*[Ss]ame[Ss]ite=).*)$' '\1; SameSite=None; Secure'
     server warpgate {{ haproxy_lb_warpgate_host }}:{{ haproxy_lb_warpgate_port }}
 {% endif %}
