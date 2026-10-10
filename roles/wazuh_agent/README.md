@@ -14,7 +14,7 @@ Default variables are defined in [defaults/main.yml](defaults/main.yml)
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `wazuh_agent_manager_host` | Hostname or IP of the Wazuh manager | `wazuh.ethquokkaops.io` |
-| `wazuh_agent_version` | APT package version to install (pinned to avoid manager/agent mismatch) | `4.14.4-1` |
+| `wazuh_agent_version` | APT package version to install and hold; keep at or below the manager. Hosts already on a newer agent are held there, not downgraded | `4.14.5-1` |
 
 ## Dependencies
 

@@ -31,14 +31,34 @@
     repo: "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main"
     filename: wazuh
     state: present
-- name: Install Wazuh agent
+# The agent must not run ahead of the manager, and the Wazuh repo would let
+# dist-upgrade move it there, so the package is pinned and held. Hosts already
+# past the pin are left as they are; downgrading the agent is unsupported.
+- name: Get installed Wazuh agent version
+  ansible.builtin.command: dpkg-query -W -f='${Version}' wazuh-agent
+  register: wazuh_agent_installed
+  changed_when: false
+  failed_when: false
+- name: Check whether the pinned Wazuh agent version is newer than the installed one
+  ansible.builtin.command: >-
+    dpkg --compare-versions "{{ wazuh_agent_installed.stdout }}" lt "{{ wazuh_agent_version }}"
+  register: wazuh_agent_upgrade_needed
+  changed_when: false
+  failed_when: false
+  when: wazuh_agent_installed.rc == 0
+- name: Install pinned Wazuh agent version
   ansible.builtin.apt:
-    name: wazuh-agent
-    state: present
+    name: "wazuh-agent={{ wazuh_agent_version }}"
     update_cache: true
+    allow_change_held_packages: true
   environment:
     WAZUH_MANAGER: "{{ wazuh_agent_manager_host }}"
+  when: wazuh_agent_installed.rc != 0 or (wazuh_agent_upgrade_needed.rc | default(1)) == 0
   notify: Restart wazuh-agent
+- name: Hold the Wazuh agent package
+  ansible.builtin.dpkg_selections:
+    name: wazuh-agent
+    selection: hold
 - name: Configure Wazuh manager address
   ansible.builtin.lineinfile:
     path: /var/ossec/etc/ossec.conf
