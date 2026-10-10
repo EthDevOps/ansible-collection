@@ -18,26 +18,37 @@
     cmd: gpg --import /tmp/openbao-gpg-pub.asc
   register: openbao_agent_gpg_import_result
   changed_when: "'imported' in openbao_agent_gpg_import_result.stderr"
+# Since 2.5.0 upstream ships the package as `openbao` (Conflicts/Replaces: bao).
+- name: Set OpenBao package name
+  ansible.builtin.set_fact:
+    openbao_agent_pkg: "{{ 'openbao' if openbao_agent_version is version('2.5.0', '>=') else 'bao' }}"
+- name: Set OpenBao deb path
+  ansible.builtin.set_fact:
+    openbao_agent_deb: "{{ openbao_agent_pkg }}_{{ openbao_agent_version }}_linux_{{ openbao_agent_arch }}.deb"
 - name: Download OpenBao deb package
   ansible.builtin.get_url:
-    url: "https://github.com/openbao/openbao/releases/download/v{{ openbao_agent_version }}/bao_{{ openbao_agent_version }}_linux_{{ openbao_agent_arch }}.deb"
-    dest: "/tmp/bao_{{ openbao_agent_version }}_linux_{{ openbao_agent_arch }}.deb"
+    url: "https://github.com/openbao/openbao/releases/download/v{{ openbao_agent_version }}/{{ openbao_agent_deb }}"
+    dest: "/tmp/{{ openbao_agent_deb }}"
     mode: "0644"
 - name: Download OpenBao deb signature
   ansible.builtin.get_url:
-    url: "https://github.com/openbao/openbao/releases/download/v{{ openbao_agent_version }}/bao_{{ openbao_agent_version }}_linux_{{ openbao_agent_arch }}.deb.gpgsig"
-    dest: "/tmp/bao_{{ openbao_agent_version }}_linux_{{ openbao_agent_arch }}.deb.gpgsig"
+    url: "https://github.com/openbao/openbao/releases/download/v{{ openbao_agent_version }}/{{ openbao_agent_deb }}.gpgsig"
+    dest: "/tmp/{{ openbao_agent_deb }}.gpgsig"
     mode: "0644"
 - name: Verify GPG signature of OpenBao deb package
   ansible.builtin.command:
-    cmd: >
-      gpg --verify
-      /tmp/bao_{{ openbao_agent_version }}_linux_{{ openbao_agent_arch }}.deb.gpgsig
-      /tmp/bao_{{ openbao_agent_version }}_linux_{{ openbao_agent_arch }}.deb
+    cmd: gpg --verify /tmp/{{ openbao_agent_deb }}.gpgsig /tmp/{{ openbao_agent_deb }}
   changed_when: false
+# apt's deb check refuses a declared conflict, so drop the old package first
+# (remove, not purge: keeps the openbao user and /etc/openbao).
+- name: Remove legacy bao package
+  ansible.builtin.apt:
+    name: bao
+    state: absent
+  when: openbao_agent_pkg == 'openbao'
 - name: Install OpenBao from deb package
   ansible.builtin.apt:
-    deb: "/tmp/bao_{{ openbao_agent_version }}_linux_{{ openbao_agent_arch }}.deb"
+    deb: "/tmp/{{ openbao_agent_deb }}"
     state: present
 - name: Create openbao-agent directories
   ansible.builtin.file:
