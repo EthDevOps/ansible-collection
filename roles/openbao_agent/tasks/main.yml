@@ -73,18 +73,6 @@
 - name: Set role-id fact
   ansible.builtin.set_fact:
     openbao_agent_role_id: "{{ openbao_agent_role_id_result.stdout }}"
-- name: Fetch secret-id from OpenBao on control node
-  ansible.builtin.command:
-    cmd: >
-      bao write -f -field=secret_id
-      auth/{{ openbao_agent_approle_mount_path }}/role/{{ openbao_agent_role_name }}/secret-id
-  delegate_to: localhost
-  become: false
-  register: openbao_agent_secret_id_result
-  changed_when: false
-- name: Set secret-id fact
-  ansible.builtin.set_fact:
-    openbao_agent_secret_id: "{{ openbao_agent_secret_id_result.stdout }}"
 - name: Deploy role-id file
   ansible.builtin.copy:
     content: "{{ openbao_agent_role_id }}"
@@ -92,13 +80,36 @@
     owner: openbao
     group: openbao
     mode: "0400"
-- name: Deploy wrapped secret-id file
-  ansible.builtin.copy:
-    content: "{{ openbao_agent_secret_id }}"
-    dest: /etc/openbao-agent/secret-id
-    owner: openbao
-    group: openbao
-    mode: "0400"
+# secret_ids never expire (secret_id_ttl = 0), so minting one on every run
+# would leave a valid credential behind per run. Only mint when the host has
+# none; delete /etc/openbao-agent/secret-id and rerun to rotate.
+- name: Check for an existing secret-id
+  ansible.builtin.stat:
+    path: /etc/openbao-agent/secret-id
+  register: openbao_agent_secret_id_file
+- name: Issue a secret-id for a host without one
+  when: not openbao_agent_secret_id_file.stat.exists
+  block:
+    - name: Fetch secret-id from OpenBao on control node
+      ansible.builtin.command:
+        cmd: >
+          bao write -f -field=secret_id
+          auth/{{ openbao_agent_approle_mount_path }}/role/{{ openbao_agent_role_name }}/secret-id
+      delegate_to: localhost
+      become: false
+      register: openbao_agent_secret_id_result
+      changed_when: false
+    - name: Set secret-id fact
+      ansible.builtin.set_fact:
+        openbao_agent_secret_id: "{{ openbao_agent_secret_id_result.stdout }}"
+    - name: Deploy wrapped secret-id file
+      ansible.builtin.copy:
+        content: "{{ openbao_agent_secret_id }}"
+        dest: /etc/openbao-agent/secret-id
+        owner: openbao
+        group: openbao
+        mode: "0400"
+      notify: Restart openbao-agent
 - name: Deploy OpenBao agent configuration
   notify: Restart openbao-agent
   ansible.builtin.template:
