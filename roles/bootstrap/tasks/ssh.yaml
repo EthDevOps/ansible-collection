@@ -3,7 +3,7 @@
   ansible.builtin.lineinfile:
     dest: /etc/ssh/sshd_config
     regexp: "^PermitRootLogin"
-    line: "PermitRootLogin no"
+    line: "PermitRootLogin {{ 'no' if bootstrap_ssh_disable_root_login | bool else 'prohibit-password' }}"
     state: present
   notify:
     - Restart sshd

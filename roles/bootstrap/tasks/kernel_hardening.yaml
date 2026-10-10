@@ -1,13 +1,15 @@
 ---
 # Kernel hardening sysctls applied to every host bootstrapped via this role.
 # Each setting closes a specific information-disclosure or attack-surface gap
-# that ships open by default on Debian/Ubuntu.
+# that ships open by default on Debian/Ubuntu. Names listed in
+# bootstrap_kernel_hardening_skip are dropped from the file instead; the
+# running value then stays until the next reboot.
 - name: Apply kernel hardening sysctls
   ansible.posix.sysctl:
     name: "{{ item.name }}"
     value: "{{ item.value }}"
     sysctl_file: /etc/sysctl.d/95-bootstrap-hardening.conf
-    state: present
+    state: "{{ 'absent' if item.name in bootstrap_kernel_hardening_skip else 'present' }}"
     reload: true
   loop:
     # Reverse-path filter: drop packets whose source address is not routable

@@ -4,3 +4,9 @@ bootstrap_default_user_sshkeys: []
 bootstrap_additional_users: []
 bootstrap_storage_optimized: false
 bootstrap_default_locale: C.UTF-8
+# Sysctl names from tasks/kernel_hardening.yaml to leave unset, e.g.
+# kernel.yama.ptrace_scope on hosts where users attach debuggers.
+bootstrap_kernel_hardening_skip: []
+# false keeps key-based root login (prohibit-password). Callers set this to
+# false while connected as root, so a run never removes the path it uses.
+bootstrap_ssh_disable_root_login: true
