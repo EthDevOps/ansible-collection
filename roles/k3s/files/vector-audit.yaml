@@ -10,4 +10,4 @@ transforms:
     inputs: [k3s_audit]
     source: |
       . = parse_json!(.message)
-      .tags.log_type = "k3s-audit"
+      .tags.log_type = "audit"
