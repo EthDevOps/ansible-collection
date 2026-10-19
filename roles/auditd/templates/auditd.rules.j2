@@ -25,15 +25,17 @@
 ## Network: binds. The kernel emits a SOCKADDR record for every bind; the
 ## vector transform decodes the AF_INET/AF_INET6 ones into
 ## bind_addr/bind_port. The socket family sits behind the a1 pointer, not
-## in a filterable syscall argument, so all binds are audited and AF_UNIX
-## (dbus, systemd) is filtered in the transform instead - it has no
-## laddr/lport, so it cannot trip the wildcard-listen alerts.
+## in a filterable syscall argument, so the rule filters on addrlen (a2)
+## instead: AF_INET/AF_INET6 binds need at least 16 bytes (EINVAL below),
+## which drops AF_NETLINK (12 bytes, getifaddrs() polling) and short AF_UNIX
+## paths. Remaining AF_UNIX binds have no laddr/lport, so they get no
+## bind_addr and cannot trip the wildcard-listen alerts.
 ##
 ## Every syscall rule has a b32 twin: 64-bit rules do not see syscalls made
 ## through the 32-bit ABI. Twins sit right after their b64 rule so that a
 ## rejected line drops the following keys and trips the role's key check.
--a always,exit -F arch=b64 -S bind -k nbind
--a always,exit -F arch=b32 -S bind -k nbind
+-a always,exit -F arch=b64 -S bind -F a2>=16 -k nbind
+-a always,exit -F arch=b32 -S bind -F a2>=16 -k nbind
 
 ## Account management tooling
 {% for exe in ['/usr/sbin/useradd', '/usr/sbin/usermod', '/usr/sbin/groupadd', '/usr/sbin/groupmod', '/usr/sbin/chpasswd', '/usr/bin/passwd'] %}

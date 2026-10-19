@@ -12,7 +12,7 @@ VictoriaLogs sink through the existing `vector` setup (drop-in config at
 | `etc` | every write/attribute change anywhere under `/etc` |
 | `sudoers`, `acct`, `pam`, `sshcfg` | dedicated keys on sudoers, account files, PAM and sshd config |
 | `sshkeys` | every `~/.ssh` directory (root + all real user accounts) |
-| `nbind` | `bind()` on AF_INET/AF_INET6; the kernel's `SOCKADDR` record carries the bound address (normalised to `bind_addr`/`bind_port` by the vector transform) |
+| `nbind` | `bind()` with addrlen >= 16, i.e. every AF_INET/AF_INET6 bind (AF_NETLINK and short AF_UNIX binds are skipped); the kernel's `SOCKADDR` record carries the bound address (normalised to `bind_addr`/`bind_port` by the vector transform) |
 | `acctmgmt` | execution of useradd/usermod/groupadd/groupmod/chpasswd/passwd |
 | `cron`, `systemd`, `root` | persistence locations (crontabs, systemd units, root home) |
 | `modload`, `ptrace`, `time` | kernel module loads, process tracing, clock changes (`clock_settime`/`settimeofday`; `adjtimex` is skipped because monitoring agents call it constantly to read the clock) |
