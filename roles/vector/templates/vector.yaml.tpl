@@ -53,18 +53,13 @@ transforms:
           source: '.tags.log_type == "audit"'
       # debug/noisy spam -> 1d tier:
       #   - journald debug level (PRIORITY 7)
-      #   - bootnode WHOAREYOU spam (mainnet-cl-bootnode-*)
-      #   - Kurtosis logs collector (fluent-bit) debug spam (boulder-infra)
+      #   - any message containing "debug" (case-insensitive)
       - name: debug
         condition:
           type: vrl
           source: |
             .PRIORITY == "7" ||
-              (match(string!(.tags.project), r'^mainnet-cl-bootnode') &&
-                match(string!(.message), r'^DEBUG')) ||
-              (.tags.project == "boulder-infra" &&
-                match(string!(.container_name), r'^kurtosis-logs-collector') &&
-                match(string!(.message), r'\[debug\]'))
+              match(string(.message) ?? "", r'(?i)debug')
 
 sinks:
   quokka_victoria:
