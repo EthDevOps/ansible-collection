@@ -33,6 +33,6 @@ None
       vars:
         bootstrap_additional_users:
           - name: deploy
-            ssh_keys:
+            sshkeys:
               - "ssh-ed25519 AAAA..."
 ```

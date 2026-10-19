@@ -14,12 +14,23 @@
     name: "{{ dcgm_exporter_manager_package }}={{ dcgm_exporter_manager_version }}"
     state: present
     update_cache: true
+    allow_change_held_packages: true
   notify: Restart nvidia-dcgm
 - name: Install DCGM exporter
   ansible.builtin.apt:
     name: "datacenter-gpu-manager-exporter={{ dcgm_exporter_package_version }}"
     state: present
+    allow_change_held_packages: true
   notify: Restart dcgm-exporter
+# Hold both so unattended/weekly dist-upgrades cannot move them past the pin
+# (the hostengine metapackage depends on exact versions, so its stack stays).
+- name: Hold DCGM packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - "{{ dcgm_exporter_manager_package }}"
+    - datacenter-gpu-manager-exporter
 - name: Enable and start nvidia-dcgm
   ansible.builtin.systemd:
     name: nvidia-dcgm
