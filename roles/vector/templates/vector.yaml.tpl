@@ -38,6 +38,33 @@ transforms:
       .tags.environment = "{{ hostvars[inventory_hostname]['environment'] }}"
       .tags.project = "{{ project }}"
       .tags.tenant = "{{ tenants[0] }}"
+  # Log tiering (see docs/ethquokkaops/monitoring-logs): split log streams
+  # across the retention tiers before shipping. First matching route wins;
+  # everything else goes to the fleet's main tier (logs_host).
+  # Add new noisy/spammy sources to the `debug` condition.
+  route_tiers:
+    type: exclusive_route
+    inputs: [logs_with_labels]
+    routes:
+      # auditd records (parsed by the auditd role, tagged log_type=audit) -> 365d tier
+      - name: audit
+        condition:
+          type: vrl
+          source: '.tags.log_type == "audit"'
+      # debug/noisy spam -> 1d tier:
+      #   - journald debug level (PRIORITY 7)
+      #   - bootnode WHOAREYOU spam (mainnet-cl-bootnode-*)
+      #   - Kurtosis logs collector (fluent-bit) debug spam (boulder-infra)
+      - name: debug
+        condition:
+          type: vrl
+          source: |
+            .PRIORITY == "7" ||
+              (match(string!(.tags.project), r'^mainnet-cl-bootnode') &&
+                match(string!(.message), r'^DEBUG')) ||
+              (.tags.project == "boulder-infra" &&
+                match(string!(.container_name), r'^kurtosis-logs-collector') &&
+                match(string!(.message), r'\[debug\]'))
 
 sinks:
   quokka_victoria:
@@ -52,9 +79,45 @@ sinks:
       password: "{% raw %}{{ with secret "{% endraw %}{{ vector_vault_secret_path }}{% raw %}" }}{{ .Data.data.{% endraw %}{{ vector_vault_password_field }}{% raw %} }}{{ end }}{% endraw %}"
 
   quokka_vlogs:
-    inputs: ["logs_with_labels"]
+    inputs: ["route_tiers._unmatched"]
     type: "elasticsearch"
-    endpoints: [ "https://{{logs_host}}/insert/elasticsearch/" ]
+    endpoints: [ "https://{{vector_logs_host}}/insert/elasticsearch/" ]
+    mode: "bulk"
+    api_version: "v8"
+    healthcheck:
+      enabled: false
+
+    auth:
+      strategy: basic
+      user: "{% raw %}{{ with secret "{% endraw %}{{ vector_vault_secret_path }}{% raw %}" }}{{ .Data.data.{% endraw %}{{ vector_vault_user_field }}{% raw %} }}{{ end }}{% endraw %}"
+      password: "{% raw %}{{ with secret "{% endraw %}{{ vector_vault_secret_path }}{% raw %}" }}{{ .Data.data.{% endraw %}{{ vector_vault_password_field }}{% raw %} }}{{ end }}{% endraw %}"
+    query:
+      _msg_field: "message"
+      _time_field: "timestamp"
+      _stream_fields: "host,container_name"
+
+  quokka_vlogs_short:
+    inputs: ["route_tiers.debug"]
+    type: "elasticsearch"
+    endpoints: [ "https://{{vector_logs_short_host}}/insert/elasticsearch/" ]
+    mode: "bulk"
+    api_version: "v8"
+    healthcheck:
+      enabled: false
+
+    auth:
+      strategy: basic
+      user: "{% raw %}{{ with secret "{% endraw %}{{ vector_vault_secret_path }}{% raw %}" }}{{ .Data.data.{% endraw %}{{ vector_vault_user_field }}{% raw %} }}{{ end }}{% endraw %}"
+      password: "{% raw %}{{ with secret "{% endraw %}{{ vector_vault_secret_path }}{% raw %}" }}{{ .Data.data.{% endraw %}{{ vector_vault_password_field }}{% raw %} }}{{ end }}{% endraw %}"
+    query:
+      _msg_field: "message"
+      _time_field: "timestamp"
+      _stream_fields: "host,container_name"
+
+  quokka_vlogs_long:
+    inputs: ["route_tiers.audit"]
+    type: "elasticsearch"
+    endpoints: [ "https://{{vector_logs_long_host}}/insert/elasticsearch/" ]
     mode: "bulk"
     api_version: "v8"
     healthcheck:
