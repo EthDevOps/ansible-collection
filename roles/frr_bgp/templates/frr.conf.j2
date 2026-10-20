@@ -92,6 +92,9 @@ router bgp {{ frr_bgp_local_asn }}
  ! passive: the speaker dials in; FRR connecting to {{ speaker.address }} would
  ! reach itself.
  neighbor {{ speaker.address }} passive
+ ! zebra lists no address on lo, so without this bgpd cannot map the local
+ ! end (127.0.0.1) to an interface and resets the session (nexthop_set failed).
+ neighbor {{ speaker.address }} update-source lo
  neighbor {{ speaker.address }} timers {{ frr_bgp_keepalive }} {{ frr_bgp_holdtime }}
 {% endfor %}
  !
