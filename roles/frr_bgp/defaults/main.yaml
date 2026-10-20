@@ -1,0 +1,102 @@
+---
+# frr_bgp — one FRR speaker per host on a routed L3 fabric (a switch pair that
+# holds an SVI in every VLAN and accepts speakers through `bgp listen range`).
+#
+# The speaker announces what the host owns, learns what every other speaker
+# owns and installs those routes in the kernel. Nothing is configured per peer
+# host anywhere: the switches accept any speaker of a VLAN through one listen
+# range and this role derives its own peers from the host's primary subnet.
+#
+# --- identity ---------------------------------------------------------------
+# The ASN is per VLAN: the remote-as of that VLAN's listen range on the
+# switches. Required.
+frr_bgp_local_asn: null
+# Must differ from every other speaker's router ID the switches can see, and
+# from a local speaker's (Cilium uses the node IP). The primary IP is unique by
+# construction; hosts with a local speaker set this explicitly.
+frr_bgp_router_id: "{{ ansible_default_ipv4.address }}"
+#
+# --- fabric peers: the switch SVIs in this host's VLAN -----------------------
+# Convention: the switch pair holds .252 / .253 in every /24 it routes. The
+# peers are derived from the primary interface's /24; a host on another prefix
+# length must set frr_bgp_fabric_peers ([{name, address, remote_asn}]) itself.
+# The switches' ASN. Required unless frr_bgp_fabric_peers is set.
+frr_bgp_fabric_asn: null
+# `name` only ends up in the neighbor descriptions.
+frr_bgp_fabric_svis:
+  - { host: 252, name: fabric-switch-1 }
+  - { host: 253, name: fabric-switch-2 }
+# frr_bgp_fabric_peers: derived in tasks/main.yaml unless set
+#
+# --- upstream peers: announce-only (default gateway) --------------------------
+# Cluster nodes announce their pod and LoadBalancer prefixes here so the
+# default gateway has return routes. Nothing is accepted from an upstream.
+frr_bgp_upstream_peers: []        # [{name, address, remote_asn}]
+#
+# --- local speakers: routing daemons on this host (Cilium) --------------------
+# A local speaker hands its prefixes to FRR, which re-announces them to the
+# fabric and upstreams. They stay out of the kernel: the local speaker already
+# owns those routes. `prefixes` is the envelope it may announce (matched le 32).
+frr_bgp_local_speakers: []        # [{name, address, remote_asn, prefixes: []}]
+#
+# --- what this host originates -----------------------------------------------
+frr_bgp_announce_host_route: true # <primary IPv4>/32
+# Addresses that are only sometimes on an interface, e.g. a VRRP VIP: announced
+# as long as the /32 is configured, withdrawn when keepalived removes it. Each
+# entry must be a /32 (keepalived adds a bare `virtual_ipaddress` as /32).
+frr_bgp_announce_connected: []    # ["192.0.2.10/32"]
+#
+# --- what this host accepts from the fabric ----------------------------------
+# Everything the switches carry, except a default route and anything inside the
+# host's own connected subnets: a /32 learned for a neighbour on the same L2
+# would win over the connected route and hairpin through the switch.
+frr_bgp_connected_subnets:
+  - "{{ ansible_default_ipv4.network }}/{{ ansible_default_ipv4.prefix }}"
+frr_bgp_fabric_deny: []           # extra prefixes never accepted (matched le 32)
+#
+# --- session hardening --------------------------------------------------------
+# TCP MD5 on the fabric sessions. A listen range accepts any host of the VLAN,
+# so without a shared key any VM on the VLAN could announce a neighbour's /32
+# and pull its traffic. Pass it from a secret store; null = no authentication.
+frr_bgp_fabric_password: null
+frr_bgp_upstream_password: null
+#
+# GTSM (RFC 5082): send TTL 255, accept only TTL 255, i.e. only directly
+# attached peers. On by default for the fabric (the SVIs are on-link). Both
+# sides must set it, so it is off for upstreams by default.
+frr_bgp_fabric_ttl_security: true
+frr_bgp_upstream_ttl_security: false
+#
+# Prefix limits: the session is shut when a peer sends more. Sized for growth
+# (a cluster is ~32 pod /24s + 256 LB /32s + its hosts), tight enough that a
+# speaker leaking a routing table cannot fill every kernel on the fabric.
+frr_bgp_fabric_max_prefix: 2000
+frr_bgp_upstream_max_prefix: 10
+frr_bgp_local_speaker_max_prefix: 512
+#
+# BFD on the fabric sessions: a dead switch is detected in ~1 s instead of the
+# 30 s hold time, so the ECMP route loses that next-hop before flows stall.
+# Runs bfdd; the switches need BFD on their peer groups and SVIs. Hosts with a
+# host firewall must allow UDP 3784 from the SVIs. check-control-plane-failure
+# keeps a planned FRR restart under graceful restart instead of treating the
+# BFD drop as a link failure.
+frr_bgp_bfd: true
+frr_bgp_bfd_interval_ms: 300
+frr_bgp_bfd_multiplier: 3
+#
+# --- timers -------------------------------------------------------------------
+frr_bgp_keepalive: 10
+frr_bgp_holdtime: 30
+frr_bgp_connect_retry: 10
+frr_bgp_graceful_restart_time: 120
+#
+# Wait at the end of the role until every fabric session is Established. Set
+# false on a play where the sessions can only come up later (first migration of
+# a host whose other speaker still holds the session) and assert elsewhere.
+frr_bgp_wait_for_fabric: true
+#
+# --- monitoring ---------------------------------------------------------------
+# Pinned release of https://github.com/tynany/frr_exporter (static Go binary).
+# Bump both values together.
+frr_bgp_exporter_version: "1.12.0"
+frr_bgp_exporter_sha256: "5279e275ec23e32902dd5c2cfac0c3ebf2f5673184bab367151dacf740888428"

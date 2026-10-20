@@ -1,0 +1,15 @@
+[Unit]
+Description=Prometheus exporter for FRR
+Documentation=https://github.com/tynany/frr_exporter
+Wants=frr.service
+After=network.target frr.service
+
+[Service]
+User=frr
+Group=frr
+ExecStart=/usr/local/lib/frr-exporter/frr_exporter-{{ frr_bgp_exporter_version }}.linux-amd64/frr_exporter --web.listen-address=127.0.0.1:9342 --collector.bgp.accepted-filtered-prefixes --collector.route.detailed-routes --no-collector.ospf{% if not frr_bgp_bfd %} --no-collector.bfd{% endif %}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

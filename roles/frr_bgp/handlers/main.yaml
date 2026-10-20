@@ -1,0 +1,19 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+- name: Restart frr
+  ansible.builtin.systemd:
+    name: frr
+    state: restarted
+- name: Reload frr
+  ansible.builtin.command: /usr/lib/frr/frr-reload.py --reload /etc/frr/frr.conf
+  changed_when: true
+- name: Restart frr_exporter
+  ansible.builtin.systemd:
+    name: frr_exporter
+    state: restarted
+- name: Restart vector
+  ansible.builtin.systemd:
+    name: vector-multi
+    state: restarted

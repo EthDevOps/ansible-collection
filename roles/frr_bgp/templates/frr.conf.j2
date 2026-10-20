@@ -1,0 +1,198 @@
+! Managed by Ansible — DO NOT EDIT (ethdevops.infrastructure.frr_bgp)
+!
+! Role of this speaker: announce what this host owns, learn what every other
+! speaker on the fabric owns, install those routes in the kernel.
+frr defaults traditional
+hostname {{ inventory_hostname }}
+log syslog informational
+service integrated-vtysh-config
+!
+{% set host_ip = ansible_default_ipv4.address %}
+{% set local_prefixes = frr_bgp_local_speakers | map(attribute='prefixes') | flatten | unique | list %}
+{% if local_prefixes %}
+! ---- zebra: keep local-speaker routes out of the kernel -------------------
+! Prefixes handed over by a local speaker are this host's own (Cilium's pod
+! /24 and LoadBalancer /32s). FRR re-announces them, but Cilium already owns
+! their kernel routes, so zebra must never install them.
+ip prefix-list PL-LOCAL-SPEAKER-ORIGIN seq 5 deny 0.0.0.0/0
+{% for prefix in local_prefixes %}
+ip prefix-list PL-LOCAL-SPEAKER-ORIGIN seq {{ loop.index * 10 }} permit {{ prefix }} le 32
+{% endfor %}
+!
+route-map RM-BGP-TO-KERNEL deny 10
+ match ip address prefix-list PL-LOCAL-SPEAKER-ORIGIN
+exit
+route-map RM-BGP-TO-KERNEL permit 100
+exit
+!
+ip protocol bgp route-map RM-BGP-TO-KERNEL
+!
+{% endif %}
+{% if frr_bgp_bfd and frr_bgp_fabric_peers %}
+! ---- bfdd: fast failure detection towards the fabric SVIs -------------------
+bfd
+ profile fabric
+  detect-multiplier {{ frr_bgp_bfd_multiplier }}
+  transmit-interval {{ frr_bgp_bfd_interval_ms }}
+  receive-interval {{ frr_bgp_bfd_interval_ms }}
+ exit
+ !
+exit
+!
+{% endif %}
+! ---- bgpd -------------------------------------------------------------------
+router bgp {{ frr_bgp_local_asn }}
+ bgp router-id {{ frr_bgp_router_id }}
+ no bgp default ipv4-unicast
+ no bgp ebgp-requires-policy
+ bgp graceful-restart
+ bgp graceful-restart restart-time {{ frr_bgp_graceful_restart_time }}
+{% if frr_bgp_announce_host_route %}
+ ! The host route below is an interface address, which is never in the RIB
+ ! as a /32 of its own, so the `network` statement must not require it.
+ no bgp network import-check
+{% endif %}
+{% if frr_bgp_local_speakers %}
+ ! A local speaker's routes carry this host as next-hop (set by RM-LOCAL-
+ ! SPEAKER-IN). FRR drops self next-hops as martian unless told otherwise.
+ bgp allow-martian-nexthop
+{% endif %}
+ !
+{% for peer in frr_bgp_fabric_peers %}
+ neighbor {{ peer.address }} remote-as {{ peer.remote_asn }}
+ neighbor {{ peer.address }} description fabric: {{ peer.name }}
+{% if frr_bgp_fabric_password %}
+ neighbor {{ peer.address }} password {{ frr_bgp_fabric_password }}
+{% endif %}
+{% if frr_bgp_fabric_ttl_security %}
+ neighbor {{ peer.address }} ttl-security hops 1
+{% endif %}
+{% if frr_bgp_bfd %}
+ neighbor {{ peer.address }} bfd profile fabric
+ neighbor {{ peer.address }} bfd check-control-plane-failure
+{% endif %}
+ neighbor {{ peer.address }} timers {{ frr_bgp_keepalive }} {{ frr_bgp_holdtime }}
+ neighbor {{ peer.address }} timers connect {{ frr_bgp_connect_retry }}
+{% endfor %}
+{% for peer in frr_bgp_upstream_peers %}
+ neighbor {{ peer.address }} remote-as {{ peer.remote_asn }}
+ neighbor {{ peer.address }} description upstream: {{ peer.name }}
+{% if frr_bgp_upstream_password %}
+ neighbor {{ peer.address }} password {{ frr_bgp_upstream_password }}
+{% endif %}
+{% if frr_bgp_upstream_ttl_security %}
+ neighbor {{ peer.address }} ttl-security hops 1
+{% endif %}
+ neighbor {{ peer.address }} timers {{ frr_bgp_keepalive }} {{ frr_bgp_holdtime }}
+ neighbor {{ peer.address }} timers connect {{ frr_bgp_connect_retry }}
+{% endfor %}
+{% for speaker in frr_bgp_local_speakers %}
+ neighbor {{ speaker.address }} remote-as {{ speaker.remote_asn }}
+ neighbor {{ speaker.address }} description local speaker: {{ speaker.name }}
+ ! passive: the speaker dials in; FRR connecting to {{ speaker.address }} would
+ ! reach itself.
+ neighbor {{ speaker.address }} passive
+ neighbor {{ speaker.address }} timers {{ frr_bgp_keepalive }} {{ frr_bgp_holdtime }}
+{% endfor %}
+ !
+ address-family ipv4 unicast
+  maximum-paths {{ [frr_bgp_fabric_peers | length, 1] | max }}
+{% if frr_bgp_announce_host_route %}
+  network {{ host_ip }}/32
+{% endif %}
+{% if frr_bgp_announce_connected %}
+  redistribute connected route-map RM-CONNECTED-ANNOUNCE
+{% endif %}
+{% for peer in frr_bgp_fabric_peers %}
+  neighbor {{ peer.address }} activate
+  neighbor {{ peer.address }} soft-reconfiguration inbound
+  neighbor {{ peer.address }} maximum-prefix {{ frr_bgp_fabric_max_prefix }}
+  neighbor {{ peer.address }} prefix-list PL-FABRIC-IN in
+  neighbor {{ peer.address }} prefix-list PL-ORIGIN out
+{% endfor %}
+{% for peer in frr_bgp_upstream_peers %}
+  neighbor {{ peer.address }} activate
+  neighbor {{ peer.address }} maximum-prefix {{ frr_bgp_upstream_max_prefix }}
+  neighbor {{ peer.address }} prefix-list PL-NONE in
+  neighbor {{ peer.address }} prefix-list PL-UPSTREAM-OUT out
+{% endfor %}
+{% for speaker in frr_bgp_local_speakers %}
+  neighbor {{ speaker.address }} activate
+  neighbor {{ speaker.address }} soft-reconfiguration inbound
+  neighbor {{ speaker.address }} maximum-prefix {{ frr_bgp_local_speaker_max_prefix }}
+  neighbor {{ speaker.address }} route-map RM-LOCAL-SPEAKER-IN in
+  neighbor {{ speaker.address }} prefix-list PL-NONE out
+{% endfor %}
+ exit-address-family
+exit
+!
+! ---- policy -----------------------------------------------------------------
+ip prefix-list PL-NONE seq 5 deny 0.0.0.0/0 le 32
+!
+{% set ns = namespace(seq=0) %}
+! What this host originates: its own host route, the connected /32s it may hold
+! (VRRP VIPs) and whatever its local speakers hand over.
+{% if frr_bgp_announce_host_route %}
+{% set ns.seq = ns.seq + 10 %}
+ip prefix-list PL-ORIGIN seq {{ ns.seq }} permit {{ host_ip }}/32
+{% endif %}
+{% for prefix in frr_bgp_announce_connected %}
+{% set ns.seq = ns.seq + 10 %}
+ip prefix-list PL-ORIGIN seq {{ ns.seq }} permit {{ prefix }}
+{% endfor %}
+{% for prefix in local_prefixes %}
+{% set ns.seq = ns.seq + 10 %}
+ip prefix-list PL-ORIGIN seq {{ ns.seq }} permit {{ prefix }} le 32
+{% endfor %}
+{% if ns.seq == 0 %}
+ip prefix-list PL-ORIGIN seq 5 deny 0.0.0.0/0 le 32
+{% endif %}
+!
+{% if frr_bgp_upstream_peers %}
+! Upstreams (default gateway) only get the local speakers' prefixes: they need
+! return routes for pod and LoadBalancer traffic, not host routes.
+{% if local_prefixes %}
+{% for prefix in local_prefixes %}
+ip prefix-list PL-UPSTREAM-OUT seq {{ loop.index * 10 }} permit {{ prefix }} le 32
+{% endfor %}
+{% else %}
+ip prefix-list PL-UPSTREAM-OUT seq 5 deny 0.0.0.0/0 le 32
+{% endif %}
+!
+{% endif %}
+! What this host accepts from the fabric: everything except a default route
+! and anything inside its own connected subnets.
+{% set ns.seq = 0 %}
+{% for subnet in frr_bgp_connected_subnets %}
+{% set ns.seq = ns.seq + 10 %}
+ip prefix-list PL-FABRIC-IN seq {{ ns.seq }} deny {{ subnet }} le 32
+{% endfor %}
+{% for prefix in frr_bgp_fabric_deny %}
+{% set ns.seq = ns.seq + 10 %}
+ip prefix-list PL-FABRIC-IN seq {{ ns.seq }} deny {{ prefix }} le 32
+{% endfor %}
+ip prefix-list PL-FABRIC-IN seq {{ ns.seq + 10 }} deny 0.0.0.0/0
+ip prefix-list PL-FABRIC-IN seq {{ ns.seq + 20 }} permit 0.0.0.0/0 le 32
+!
+{% if frr_bgp_announce_connected %}
+ip prefix-list PL-CONNECTED-ANNOUNCE seq 5 deny 0.0.0.0/0
+{% for prefix in frr_bgp_announce_connected %}
+ip prefix-list PL-CONNECTED-ANNOUNCE seq {{ loop.index * 10 }} permit {{ prefix }}
+{% endfor %}
+!
+route-map RM-CONNECTED-ANNOUNCE permit 10
+ match ip address prefix-list PL-CONNECTED-ANNOUNCE
+exit
+!
+{% endif %}
+{% if frr_bgp_local_speakers %}
+! Local speakers peer over loopback and set next-hop 127.0.0.1. Rewrite it to
+! this host's address so the route is valid here and correct on the fabric.
+route-map RM-LOCAL-SPEAKER-IN permit 10
+ match ip address prefix-list PL-LOCAL-SPEAKER-ORIGIN
+ set ip next-hop {{ host_ip }}
+exit
+!
+{% endif %}
+line vty
+!

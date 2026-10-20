@@ -1,0 +1,194 @@
+---
+# ---- inputs -----------------------------------------------------------------
+- name: Check the speaker's identity
+  ansible.builtin.assert:
+    that:
+      - frr_bgp_local_asn is not none
+      - frr_bgp_local_asn | int >= 64512 and frr_bgp_local_asn | int <= 65534
+    fail_msg: frr_bgp_local_asn must be the private ASN of this host's VLAN.
+- name: Derive the fabric peers from the primary /24
+  when: frr_bgp_fabric_peers is not defined
+  block:
+    - name: Fabric peer derivation only knows the /24 convention
+      ansible.builtin.assert:
+        that:
+          - ansible_default_ipv4.prefix | int == 24
+          - frr_bgp_fabric_asn is not none
+        fail_msg: >-
+          Deriving the fabric peers needs frr_bgp_fabric_asn and a /24 primary
+          subnet ({{ inventory_hostname }} has /{{ ansible_default_ipv4.prefix }});
+          otherwise set frr_bgp_fabric_peers explicitly.
+    - name: Set the fabric peers
+      ansible.builtin.set_fact:
+        frr_bgp_fabric_peers: "{{ _frr_bgp_fabric_peers_json | from_json }}"
+      vars:
+        _frr_bgp_fabric_peers_json: >-
+          {%- set base = ansible_default_ipv4.network.split('.')[:3] | join('.') -%}
+          [{% for svi in frr_bgp_fabric_svis -%}
+          {"name": "{{ svi.name }}", "address": "{{ base }}.{{ svi.host }}", "remote_asn": {{ frr_bgp_fabric_asn | int }}}{%- if not loop.last %}, {% endif %}{% endfor %}]
+- name: Check the connected announcements are /32s
+  # keepalived adds a bare `virtual_ipaddress` as /32, which zebra sees as a
+  # connected /32 and the route-map matches exactly. A VIP configured with its
+  # subnet's prefix length never produces that route and is announced by nobody.
+  ansible.builtin.assert:
+    that: item is match('^([0-9]{1,3}\.){3}[0-9]{1,3}/32$')
+    fail_msg: "frr_bgp_announce_connected entry {{ item }} is not a /32"
+  loop: "{{ frr_bgp_announce_connected }}"
+- name: Check the local speakers declare their prefixes
+  ansible.builtin.assert:
+    that:
+      - item.prefixes | default([]) | length > 0
+      - item.address is defined
+      - item.remote_asn is defined
+    fail_msg: "local speaker {{ item.name | default('?') }} needs address, remote_asn and a non-empty prefixes list"
+  loop: "{{ frr_bgp_local_speakers }}"
+  loop_control:
+    label: "{{ item.name | default('?') }}"
+- name: Check the router ID is not the one a local speaker uses
+  # Cilium's BGP instance uses the node IP as router ID. FRR refuses an OPEN
+  # whose BGP identifier equals its own, so the two must differ.
+  ansible.builtin.assert:
+    that: frr_bgp_router_id != ansible_default_ipv4.address
+    fail_msg: >-
+      {{ inventory_hostname }} runs a local speaker; set frr_bgp_router_id to
+      something other than the primary IP (the cluster's router-ID pool).
+  when: frr_bgp_local_speakers | length > 0
+# ---- packages ---------------------------------------------------------------
+- name: Update apt cache (tolerate broken third-party repos)
+  ansible.builtin.apt:
+    update_cache: true
+  register: frr_bgp_apt_update
+  failed_when: false
+- name: Warn if apt cache update did not fully succeed
+  when: frr_bgp_apt_update.failed | default(false) or 'Failed to fetch' in (frr_bgp_apt_update.stderr | default(''))
+  ansible.builtin.debug:
+    msg: >-
+      apt-get update reported errors; continuing with the existing cache.
+      Details: {{ frr_bgp_apt_update.msg | default(frr_bgp_apt_update.stderr | default('unknown')) }}
+- name: Install FRR
+  ansible.builtin.apt:
+    name:
+      - frr
+      - frr-pythontools
+    state: present
+# ---- systemd-networkd must leave zebra's routes alone ------------------------
+- name: Create the networkd.conf drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/networkd.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+- name: Stop networkd from reaping foreign routes
+  # Read when networkd starts. Not restarting networkd here on purpose: the
+  # frr.service drop-in below covers the window until the next restart.
+  ansible.builtin.copy:
+    src: networkd-foreign-routes.conf
+    dest: /etc/systemd/networkd.conf.d/10-frr.conf
+    owner: root
+    group: root
+    mode: '0644'
+- name: Create the frr.service drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/frr.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+- name: Tie frr.service to systemd-networkd
+  ansible.builtin.copy:
+    src: frr-networkd-dropin.conf
+    dest: /etc/systemd/system/frr.service.d/10-networkd.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload systemd
+# ---- FRR --------------------------------------------------------------------
+- name: Enable the FRR daemons
+  ansible.builtin.lineinfile:
+    path: /etc/frr/daemons
+    regexp: '^{{ item.name }}='
+    line: '{{ item.name }}={{ item.enabled | ternary("yes", "no") }}'
+  loop:
+    - { name: bgpd, enabled: true }
+    - { name: bfdd, enabled: "{{ frr_bgp_bfd }}" }
+  loop_control:
+    label: "{{ item.name }}"
+  notify: Restart frr
+- name: Render frr.conf
+  # The MD5 key is in this file: 0640, owned by frr, and no diff in the
+  # play output when one is set.
+  ansible.builtin.template:
+    src: frr.conf.j2
+    dest: /etc/frr/frr.conf
+    owner: frr
+    group: frr
+    mode: '0640'
+    validate: /usr/bin/vtysh --dryrun --inputfile %s
+  diff: "{{ not (frr_bgp_fabric_password or frr_bgp_upstream_password) }}"
+  notify: Reload frr
+- name: Ensure frr is enabled and running
+  ansible.builtin.systemd:
+    name: frr
+    enabled: true
+    state: started
+- name: Apply the FRR configuration now
+  ansible.builtin.meta: flush_handlers
+- name: Wait for the fabric sessions to establish
+  when: frr_bgp_wait_for_fabric
+  ansible.builtin.command: vtysh -c 'show bgp ipv4 unicast summary json'
+  register: frr_bgp_summary
+  changed_when: false
+  retries: 12
+  delay: 5
+  until: >-
+    (frr_bgp_summary.stdout | from_json).ipv4Unicast.peers | default({}) | dict2items
+    | selectattr('key', 'in', frr_bgp_fabric_peers | map(attribute='address') | list)
+    | selectattr('value.state', 'equalto', 'Established') | list | length
+    == frr_bgp_fabric_peers | length
+# ---- monitoring: frr_exporter + Vector scrape --------------------------------
+- name: Create frr_exporter install directory
+  ansible.builtin.file:
+    path: /usr/local/lib/frr-exporter
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+- name: Download frr_exporter release tarball
+  ansible.builtin.get_url:
+    url: "https://github.com/tynany/frr_exporter/releases/download/v{{ frr_bgp_exporter_version }}/frr_exporter-{{ frr_bgp_exporter_version }}.linux-amd64.tar.gz"
+    dest: "/usr/local/lib/frr-exporter/frr_exporter-{{ frr_bgp_exporter_version }}.linux-amd64.tar.gz"
+    checksum: "sha256:{{ frr_bgp_exporter_sha256 }}"
+    mode: "0644"
+- name: Check frr_exporter binary
+  ansible.builtin.stat:
+    path: "/usr/local/lib/frr-exporter/frr_exporter-{{ frr_bgp_exporter_version }}.linux-amd64/frr_exporter"
+  register: frr_bgp_exporter_bin
+- name: Extract frr_exporter binary
+  ansible.builtin.unarchive:
+    src: "/usr/local/lib/frr-exporter/frr_exporter-{{ frr_bgp_exporter_version }}.linux-amd64.tar.gz"
+    dest: "/usr/local/lib/frr-exporter/"
+    remote_src: true
+    include:
+      - "frr_exporter-{{ frr_bgp_exporter_version }}.linux-amd64/frr_exporter"
+    mode: "0755"
+  when: not frr_bgp_exporter_bin.stat.exists
+- name: Install frr_exporter systemd unit
+  ansible.builtin.template:
+    src: frr_exporter.service.j2
+    dest: /etc/systemd/system/frr_exporter.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart frr_exporter
+- name: Ensure frr_exporter is enabled and running
+  ansible.builtin.systemd:
+    name: frr_exporter
+    enabled: true
+    state: started
+- name: Deploy frr vector scrape config
+  ansible.builtin.copy:
+    src: vector-frr.yaml
+    dest: /etc/vector/frr.yaml
+    mode: "0644"
+  notify: Restart vector
