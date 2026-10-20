@@ -28,7 +28,7 @@ exit
 ip protocol bgp route-map RM-BGP-TO-KERNEL
 !
 {% endif %}
-{% if frr_bgp_bfd and frr_bgp_fabric_peers %}
+{% if frr_bgp_bfd | bool and frr_bgp_fabric_peers %}
 ! ---- bfdd: fast failure detection towards the fabric SVIs -------------------
 bfd
  profile fabric
@@ -47,7 +47,7 @@ router bgp {{ frr_bgp_local_asn }}
  no bgp ebgp-requires-policy
  bgp graceful-restart
  bgp graceful-restart restart-time {{ frr_bgp_graceful_restart_time }}
-{% if frr_bgp_announce_host_route %}
+{% if frr_bgp_announce_host_route | bool %}
  ! The host route below is an interface address, which is never in the RIB
  ! as a /32 of its own, so the `network` statement must not require it.
  no bgp network import-check
@@ -64,10 +64,10 @@ router bgp {{ frr_bgp_local_asn }}
 {% if frr_bgp_fabric_password %}
  neighbor {{ peer.address }} password {{ frr_bgp_fabric_password }}
 {% endif %}
-{% if frr_bgp_fabric_ttl_security %}
+{% if frr_bgp_fabric_ttl_security | bool %}
  neighbor {{ peer.address }} ttl-security hops 1
 {% endif %}
-{% if frr_bgp_bfd %}
+{% if frr_bgp_bfd | bool %}
  neighbor {{ peer.address }} bfd profile fabric
  neighbor {{ peer.address }} bfd check-control-plane-failure
 {% endif %}
@@ -80,7 +80,7 @@ router bgp {{ frr_bgp_local_asn }}
 {% if frr_bgp_upstream_password %}
  neighbor {{ peer.address }} password {{ frr_bgp_upstream_password }}
 {% endif %}
-{% if frr_bgp_upstream_ttl_security %}
+{% if frr_bgp_upstream_ttl_security | bool %}
  neighbor {{ peer.address }} ttl-security hops 1
 {% endif %}
  neighbor {{ peer.address }} timers {{ frr_bgp_keepalive }} {{ frr_bgp_holdtime }}
@@ -97,7 +97,7 @@ router bgp {{ frr_bgp_local_asn }}
  !
  address-family ipv4 unicast
   maximum-paths {{ [frr_bgp_fabric_peers | length, 1] | max }}
-{% if frr_bgp_announce_host_route %}
+{% if frr_bgp_announce_host_route | bool %}
   network {{ host_ip }}/32
 {% endif %}
 {% if frr_bgp_announce_connected %}
@@ -132,7 +132,7 @@ ip prefix-list PL-NONE seq 5 deny 0.0.0.0/0 le 32
 {% set ns = namespace(seq=0) %}
 ! What this host originates: its own host route, the connected /32s it may hold
 ! (VRRP VIPs) and whatever its local speakers hand over.
-{% if frr_bgp_announce_host_route %}
+{% if frr_bgp_announce_host_route | bool %}
 {% set ns.seq = ns.seq + 10 %}
 ip prefix-list PL-ORIGIN seq {{ ns.seq }} permit {{ host_ip }}/32
 {% endif %}

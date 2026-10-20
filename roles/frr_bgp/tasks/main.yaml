@@ -108,7 +108,7 @@
   ansible.builtin.lineinfile:
     path: /etc/frr/daemons
     regexp: '^{{ item.name }}='
-    line: '{{ item.name }}={{ item.enabled | ternary("yes", "no") }}'
+    line: '{{ item.name }}={{ item.enabled | bool | ternary("yes", "no") }}'
   loop:
     - { name: bgpd, enabled: true }
     - { name: bfdd, enabled: "{{ frr_bgp_bfd }}" }
@@ -135,7 +135,7 @@
 - name: Apply the FRR configuration now
   ansible.builtin.meta: flush_handlers
 - name: Wait for the fabric sessions to establish
-  when: frr_bgp_wait_for_fabric
+  when: frr_bgp_wait_for_fabric | bool
   ansible.builtin.command: vtysh -c 'show bgp ipv4 unicast summary json'
   register: frr_bgp_summary
   changed_when: false
