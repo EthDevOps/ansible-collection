@@ -1,0 +1,91 @@
+---
+- name: Enable the FRR daemons
+  ansible.builtin.lineinfile:
+    path: /etc/frr/daemons
+    regexp: '^{{ item.name }}='
+    line: '{{ item.name }}={{ item.enabled | bool | ternary("yes", "no") }}'
+  loop:
+    - { name: bgpd, enabled: true }
+    - { name: bfdd, enabled: "{{ frr_bgp_bfd }}" }
+  loop_control:
+    label: "{{ item.name }}"
+  notify: Restart frr
+- name: Render frr.conf
+  # The MD5 key is in this file: 0640, owned by frr, and no diff in the
+  # play output when one is set.
+  ansible.builtin.template:
+    src: frr.conf.j2
+    dest: /etc/frr/frr.conf
+    owner: frr
+    group: frr
+    mode: '0640'
+    validate: /usr/bin/vtysh --dryrun --inputfile %s
+  diff: "{{ not (frr_bgp_fabric_password or frr_bgp_upstream_password) }}"
+  notify: Reload frr
+- name: Ensure frr is enabled and running
+  ansible.builtin.systemd:
+    name: frr
+    enabled: true
+    state: started
+- name: Apply the FRR configuration now
+  ansible.builtin.meta: flush_handlers
+- name: Wait for the fabric sessions to establish
+  when: frr_bgp_wait_for_fabric | bool
+  # The afi/safi form returns `peers` at the top level; plain `show bgp summary
+  # json` would wrap them in `ipv4Unicast`.
+  ansible.builtin.command: vtysh -c 'show bgp ipv4 unicast summary json'
+  register: frr_bgp_summary
+  changed_when: false
+  retries: 12
+  delay: 5
+  until: >-
+    (frr_bgp_summary.stdout | from_json).peers | default({}) | dict2items
+    | selectattr('key', 'in', frr_bgp_fabric_peers | map(attribute='address') | list)
+    | selectattr('value.state', 'equalto', 'Established') | list | length
+    == frr_bgp_fabric_peers | length
+# ---- monitoring: frr_exporter + Vector scrape --------------------------------
+- name: Create frr_exporter install directory
+  ansible.builtin.file:
+    path: /usr/local/lib/frr-exporter
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+- name: Download frr_exporter release tarball
+  ansible.builtin.get_url:
+    url: "https://github.com/tynany/frr_exporter/releases/download/v{{ frr_bgp_exporter_version }}/frr_exporter-{{ frr_bgp_exporter_version }}.linux-amd64.tar.gz"
+    dest: "/usr/local/lib/frr-exporter/frr_exporter-{{ frr_bgp_exporter_version }}.linux-amd64.tar.gz"
+    checksum: "sha256:{{ frr_bgp_exporter_sha256 }}"
+    mode: "0644"
+- name: Check frr_exporter binary
+  ansible.builtin.stat:
+    path: "/usr/local/lib/frr-exporter/frr_exporter-{{ frr_bgp_exporter_version }}.linux-amd64/frr_exporter"
+  register: frr_bgp_exporter_bin
+- name: Extract frr_exporter binary
+  ansible.builtin.unarchive:
+    src: "/usr/local/lib/frr-exporter/frr_exporter-{{ frr_bgp_exporter_version }}.linux-amd64.tar.gz"
+    dest: "/usr/local/lib/frr-exporter/"
+    remote_src: true
+    include:
+      - "frr_exporter-{{ frr_bgp_exporter_version }}.linux-amd64/frr_exporter"
+    mode: "0755"
+  when: not frr_bgp_exporter_bin.stat.exists
+- name: Install frr_exporter systemd unit
+  ansible.builtin.template:
+    src: frr_exporter.service.j2
+    dest: /etc/systemd/system/frr_exporter.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart frr_exporter
+- name: Ensure frr_exporter is enabled and running
+  ansible.builtin.systemd:
+    name: frr_exporter
+    enabled: true
+    state: started
+- name: Deploy frr vector scrape config
+  ansible.builtin.copy:
+    src: vector-frr.yaml
+    dest: /etc/vector/frr.yaml
+    mode: "0644"
+  notify: Restart vector
