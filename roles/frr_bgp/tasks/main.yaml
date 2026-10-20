@@ -136,13 +136,15 @@
   ansible.builtin.meta: flush_handlers
 - name: Wait for the fabric sessions to establish
   when: frr_bgp_wait_for_fabric | bool
+  # The afi/safi form returns `peers` at the top level; plain `show bgp summary
+  # json` would wrap them in `ipv4Unicast`.
   ansible.builtin.command: vtysh -c 'show bgp ipv4 unicast summary json'
   register: frr_bgp_summary
   changed_when: false
   retries: 12
   delay: 5
   until: >-
-    (frr_bgp_summary.stdout | from_json).ipv4Unicast.peers | default({}) | dict2items
+    (frr_bgp_summary.stdout | from_json).peers | default({}) | dict2items
     | selectattr('key', 'in', frr_bgp_fabric_peers | map(attribute='address') | list)
     | selectattr('value.state', 'equalto', 'Established') | list | length
     == frr_bgp_fabric_peers | length
