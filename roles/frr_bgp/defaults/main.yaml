@@ -97,6 +97,13 @@ frr_bgp_graceful_restart_time: 120
 # a host whose other speaker still holds the session) and assert elsewhere.
 frr_bgp_wait_for_fabric: true
 #
+# --- FRR package ----------------------------------------------------------------
+# From deb.frrouting.org (Debian's 10.3 cannot start a BFD-enabled session against
+# a passive listen-range peer). Exact Debian version, codename suffix included;
+# pinned with apt preferences so dist-upgrade does not move it.
+frr_bgp_frr_channel: frr-stable
+frr_bgp_frr_version: "10.7.1-0~deb13u1"
+#
 # --- monitoring ---------------------------------------------------------------
 # Pinned release of https://github.com/tynany/frr_exporter (static Go binary).
 # Bump both values together.

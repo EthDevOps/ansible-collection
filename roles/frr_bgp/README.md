@@ -42,6 +42,7 @@ symmetric.
 | `frr_bgp_fabric_max_prefix` / `_upstream_` / `_local_speaker_` | Session shut above this many prefixes (2000 / 10 / 512) |
 | `frr_bgp_bfd` | BFD on the fabric sessions, 300 ms × 3 (default true; UDP 3784 must be open from the SVIs) |
 | `frr_bgp_exporter_version` / `_sha256` | Pinned `frr_exporter` release |
+| `frr_bgp_frr_version` / `frr_bgp_frr_channel` | FRR from deb.frrouting.org (`frr-stable`), exact version pinned via `/etc/apt/preferences.d/frr`. Debian's 10.3 never opens a BFD-enabled session while BFD is down, which deadlocks against switches that only run BFD for established listen-range peers |
 
 Rendered policy, in `/etc/frr/frr.conf`:
 

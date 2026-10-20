@@ -54,6 +54,30 @@
       something other than the primary IP (the cluster's router-ID pool).
   when: frr_bgp_local_speakers | length > 0
 # ---- packages ---------------------------------------------------------------
+# FRR from the upstream repo: Debian's 10.3 never opens a session while its BFD
+# session is down, and a switch that only runs BFD for established dynamic
+# peers (listen range) never brings BFD up first, so fresh starts stayed Idle.
+- name: Add the FRRouting signing key
+  ansible.builtin.get_url:
+    url: https://deb.frrouting.org/frr/keys.gpg
+    dest: /usr/share/keyrings/frrouting.gpg
+    mode: "0644"
+- name: Add the FRRouting apt repo
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/frrouting.gpg] https://deb.frrouting.org/frr {{ ansible_distribution_release }} {{ frr_bgp_frr_channel }}"
+    filename: frr
+    state: present
+    update_cache: false
+- name: Pin the FRR version
+  # Priority 1001 keeps dist-upgrade (os-updates) from moving FRR past the pin
+  # and lets the role downgrade to it.
+  ansible.builtin.copy:
+    dest: /etc/apt/preferences.d/frr
+    mode: "0644"
+    content: |
+      Package: frr frr-pythontools
+      Pin: version {{ frr_bgp_frr_version }}
+      Pin-Priority: 1001
 - name: Update apt cache (tolerate broken third-party repos)
   ansible.builtin.apt:
     update_cache: true
@@ -66,12 +90,15 @@
       apt-get update reported errors; continuing with the existing cache.
       Details: {{ frr_bgp_apt_update.msg | default(frr_bgp_apt_update.stderr | default('unknown')) }}
 - name: Install FRR
+  # The package upgrade restarts FRR (and its sessions) once per version bump.
+  # A check run has not added the repo, so the pinned version is unknown there.
   register: frr_bgp_install
+  ignore_errors: "{{ ansible_check_mode }}"
   ansible.builtin.apt:
     name:
-      - frr
-      - frr-pythontools
-    state: present
+      - "frr={{ frr_bgp_frr_version }}"
+      - "frr-pythontools={{ frr_bgp_frr_version }}"
+    allow_downgrade: true
 # ---- systemd-networkd must leave zebra's routes alone ------------------------
 - name: Create the networkd.conf drop-in directory
   ansible.builtin.file:
@@ -109,4 +136,4 @@
 # check run on a host without FRR can only report the install above.
 - name: Configure FRR and its exporter
   ansible.builtin.include_tasks: configure.yaml
-  when: not (ansible_check_mode and frr_bgp_install is changed)
+  when: not (ansible_check_mode and (frr_bgp_install is changed or frr_bgp_install is failed))
