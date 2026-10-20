@@ -90,10 +90,13 @@
       apt-get update reported errors; continuing with the existing cache.
       Details: {{ frr_bgp_apt_update.msg | default(frr_bgp_apt_update.stderr | default('unknown')) }}
 - name: Install FRR
-  # The package upgrade restarts FRR (and its sessions) once per version bump.
+  # The package does not restart running daemons on upgrade; the old bgpd keeps
+  # running from the deleted binary. The handler restarts FRR (and its
+  # sessions) once per version change.
   # A check run has not added the repo, so the pinned version is unknown there.
   register: frr_bgp_install
   ignore_errors: "{{ ansible_check_mode }}"
+  notify: Restart frr
   ansible.builtin.apt:
     name:
       - "frr={{ frr_bgp_frr_version }}"
