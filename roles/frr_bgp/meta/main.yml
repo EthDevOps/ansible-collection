@@ -2,7 +2,7 @@
 galaxy_info:
   role_name: frr_bgp
   author: EthDevOps
-  description: FRR BGP speaker per host on a routed L3 fabric (listen ranges, MD5, GTSM, BFD)
+  description: FRR BGP speaker per host on a routed L3 fabric (listen ranges, MD5, BFD)
   license: MIT
   min_ansible_version: "2.15"
   platforms:

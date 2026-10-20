@@ -38,7 +38,7 @@ symmetric.
 | `frr_bgp_fabric_deny` | Extra prefixes never accepted from the fabric |
 | `frr_bgp_wait_for_fabric` | Fail the play unless all fabric sessions establish (default true) |
 | `frr_bgp_fabric_password` / `_upstream_` | TCP MD5 keys; the `frr.conf` diff is hidden when one is set |
-| `frr_bgp_fabric_ttl_security` / `_upstream_` | GTSM, `ttl-security hops 1` (fabric default true, upstream false) |
+| `frr_bgp_fabric_ttl_security` / `_upstream_` | GTSM, `ttl-security hops 1` (default false: FRR then runs BFD as multihop, which does not meet single-hop BFD on the switch) |
 | `frr_bgp_fabric_max_prefix` / `_upstream_` / `_local_speaker_` | Session shut above this many prefixes (2000 / 10 / 512) |
 | `frr_bgp_bfd` | BFD on the fabric sessions, 300 ms × 3 (default true; UDP 3784 must be open from the SVIs) |
 | `frr_bgp_exporter_version` / `_sha256` | Pinned `frr_exporter` release |

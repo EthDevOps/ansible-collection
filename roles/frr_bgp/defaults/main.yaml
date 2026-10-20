@@ -62,9 +62,11 @@ frr_bgp_fabric_password: null
 frr_bgp_upstream_password: null
 #
 # GTSM (RFC 5082): send TTL 255, accept only TTL 255, i.e. only directly
-# attached peers. On by default for the fabric (the SVIs are on-link). Both
-# sides must set it, so it is off for upstreams by default.
-frr_bgp_fabric_ttl_security: true
+# attached peers. Both sides must set it. Off by default: FRR (10.3) registers
+# the BFD session of a ttl-security neighbor as multihop, which never comes up
+# against a switch running single-hop BFD on the SVI. With BFD off it is safe
+# to enable; MD5 and the listen range still cover what GTSM guards against.
+frr_bgp_fabric_ttl_security: false
 frr_bgp_upstream_ttl_security: false
 #
 # Prefix limits: the session is shut when a peer sends more. Sized for growth
