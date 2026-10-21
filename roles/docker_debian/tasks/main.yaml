@@ -41,6 +41,23 @@
   ansible.builtin.template:
     src: daemon.json.j2
     dest: /etc/docker/daemon.json
+# Debian's own docker packages conflict with the docker-ce stack at the
+# file level (docker-buildx ships /usr/libexec/docker/cli-plugins/docker-buildx,
+# which docker-buildx-plugin also owns), so apt's automatic removal aborts
+# mid-transaction and leaves dpkg broken with the daemon uninstalled.
+# Remove them explicitly before installing docker-ce.
+- name: Remove conflicting distro Docker packages
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-cli
+      - docker-buildx
+      - docker-compose
+      - docker-doc
+      - podman-docker
+    state: absent
+  become: true
+  when: docker_debian_package == "docker-ce"
 - name: Install Docker
   ansible.builtin.apt:
     name: "{{ docker_debian_package }}"
