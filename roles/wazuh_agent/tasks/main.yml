@@ -75,6 +75,25 @@
     mode: '0640'
   when: wazuh_agent_registration_password | length > 0
   notify: Restart wazuh-agent
+# Upstream unit has Restart=no, so an OOM kill leaves the agent dead for good.
+# The daemon_reload below picks this up; no agent restart needed.
+- name: Create wazuh-agent systemd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/wazuh-agent.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+- name: Restart wazuh-agent on failure
+  ansible.builtin.copy:
+    content: |
+      [Service]
+      Restart=on-failure
+      RestartSec=30
+    dest: /etc/systemd/system/wazuh-agent.service.d/restart.conf
+    owner: root
+    group: root
+    mode: '0644'
 - name: Enable and start Wazuh agent
   ansible.builtin.systemd:
     name: wazuh-agent

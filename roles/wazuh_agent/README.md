@@ -2,6 +2,8 @@
 
 This role installs and configures the Wazuh agent for host-based security monitoring. The agent enrolls automatically with the configured Wazuh manager using the APT repository method.
 
+The upstream unit ships with `Restart=no`; the role adds a `wazuh-agent.service.d/restart.conf` drop-in (`Restart=on-failure`) so an OOM kill does not leave the agent stopped.
+
 ## Requirements
 
 - Debian or Ubuntu target host
