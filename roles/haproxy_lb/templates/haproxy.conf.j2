@@ -132,6 +132,7 @@ frontend http
 
     # Capture request URI for redirect preservation
     http-request capture path len 512
+    {% include '_rate_limit.j2' %}
 
     {% if (haproxy_lb_force_https | default(false)) and (not haproxy_lb_sites_insecure) %}
     {# Route only services that opt in to plain HTTP; everything else falls
@@ -172,6 +173,7 @@ frontend https
 
     # Capture request URI for redirect preservation
     http-request capture path len 512
+    {% include '_rate_limit.j2' %}
 
     {% set routing_filter_allow_http = false %}
     {% include '_http_routing.j2' %}

@@ -1,0 +1,8 @@
+{# Per-source request-rate limit for the domains in haproxy_lb_rate_limit_targets.
+   Rates are counted in the Abuse table across all listed domains; sources in
+   haproxy_lb_rate_limit_exclude (allowlist.acl) are never tracked. #}
+{% if haproxy_lb_rate_limit_targets | length > 0 %}
+    acl rl_target req.hdr(host),field(1,:) -i {{ haproxy_lb_rate_limit_targets | map(attribute='domain') | join(' ') }}
+    http-request track-sc0 src table Abuse if rl_target !{ src -f /etc/haproxy/allowlist.acl }
+    http-request deny deny_status 429 if rl_target { sc_http_req_rate(0) gt {{ haproxy_lb_rate_limit_per_min }} }
+{% endif %}

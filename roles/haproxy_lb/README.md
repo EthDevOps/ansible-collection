@@ -20,6 +20,9 @@ Default variables are defined in [defaults/main.yaml](defaults/main.yaml).
 | `haproxy_lb_stats_password` | `somepassword` | Password for HAProxy stats page |
 | `haproxy_lb_force_https` | `false` | If `true`, the `:80` frontend redirects HTTP→HTTPS (301) for any service that does not set `allow_http`. Leave off until you've observed which clients still need plain HTTP (see `haproxy_lb_log_http_requests`). |
 | `haproxy_lb_log_http_requests` | `true` | If `true`, the `:80` frontend logs every request (overrides the global `dontlog-normal`). Use during the discovery phase to inventory HTTP clients before flipping `haproxy_lb_force_https` on. |
+| `haproxy_lb_rate_limit_targets` | `[]` | List of `{name, domain}`. Requests to these domains (on `:80` and `:443`) are tracked per source IP in the `Abuse` stick table and answered with `429` once a source exceeds `haproxy_lb_rate_limit_per_min` requests in the last 60 s, counted across all listed domains. Empty = no limiting. |
+| `haproxy_lb_rate_limit_per_min` | `1500` | Per-source request threshold per 60 s for `haproxy_lb_rate_limit_targets`. |
+| `haproxy_lb_rate_limit_exclude` | `[]` | Source IPs/CIDRs (written to `/etc/haproxy/allowlist.acl`) that are never rate limited, e.g. an event venue's NAT address. |
 
 #### HTTP vs HTTPS frontends
 
@@ -451,6 +454,7 @@ All HTTP backends have a 2-hour tunnel timeout for WebSocket connections.
 - HSTS enabled with 2-year max-age
 - TLS 1.2+ only with modern cipher suites
 - HTTP/2 and HTTP/1.1 ALPN support
+- Optional per-source request-rate limit for selected domains (`haproxy_lb_rate_limit_targets`)
 
 ---
 
