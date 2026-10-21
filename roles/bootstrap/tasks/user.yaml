@@ -23,6 +23,32 @@
     state: present
     key: "{{ item }}"
   loop: "{{ bootstrap_default_user_sshkeys }}"
+- name: Setup the Warpgate SSH users
+  vars:
+    # Warpgate always relies on devops; the project's targets may log in as another user.
+    _warpgate_users: "{{ (['devops', bootstrap_ssh_username] | unique) | difference([bootstrap_default_user]) }}"
+  block:
+    - name: Ensure the Warpgate SSH users are present
+      ansible.builtin.user:
+        name: "{{ item }}"
+        state: present
+        shell: "{{ bootstrap_user_shell }}"
+        create_home: true
+      loop: "{{ _warpgate_users }}"
+    - name: Allow the Warpgate SSH users to have passwordless sudo
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: "^{{ item }} "
+        line: "{{ item }} ALL=(ALL) NOPASSWD: ALL"
+        validate: visudo -cf %s
+      loop: "{{ _warpgate_users }}"
+    - name: Add default SSH keys for the Warpgate SSH users
+      ansible.posix.authorized_key:
+        user: "{{ item.0 }}"
+        state: present
+        key: "{{ item.1 }}"
+      loop: "{{ _warpgate_users | product(bootstrap_default_user_sshkeys) | list }}"
 - name: Ensure users are present
   ansible.builtin.user:
     name: "{{ item.name }}"

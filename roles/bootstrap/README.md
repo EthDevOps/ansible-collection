@@ -14,6 +14,7 @@ Default variables are defined in [defaults/main.yaml](defaults/main.yaml)
 |----------|-------------|---------|
 | `bootstrap_additional_users` | List of additional users to create | `[]` |
 | `bootstrap_default_user_sshkeys` | List of SSH public keys to install in the default user's `authorized_keys` | `[]` |
+| `bootstrap_ssh_username` | User the project's Warpgate targets log in as. It and `devops` (which Warpgate always relies on) are created, unless equal to `bootstrap_default_user`, with passwordless sudo and `bootstrap_default_user_sshkeys` | `devops` |
 | `bootstrap_storage_optimized` | Enable storage optimizations | `false` |
 | `bootstrap_kernel_hardening_skip` | Sysctl names from `tasks/kernel_hardening.yaml` to leave unset (removed from `/etc/sysctl.d/95-bootstrap-hardening.conf`; the running value stays until reboot), e.g. `kernel.yama.ptrace_scope` on devboxes | `[]` |
 | `bootstrap_ssh_disable_root_login` | `PermitRootLogin no` when true, `prohibit-password` (key-only root) when false | `true` |

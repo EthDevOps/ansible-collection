@@ -1,6 +1,9 @@
 ---
 bootstrap_user_shell: /bin/bash
 bootstrap_default_user_sshkeys: []
+# User the project's Warpgate targets log in as (set per host via NetBox local
+# context by the project's terraform). devops is always created as well.
+bootstrap_ssh_username: devops
 bootstrap_additional_users: []
 bootstrap_storage_optimized: false
 bootstrap_default_locale: C.UTF-8
