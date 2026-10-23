@@ -450,7 +450,7 @@ All HTTP backends have a 2-hour tunnel timeout for WebSocket connections.
 - **Stats page:** `http://127.0.0.1:32700/` (requires auth)
 - **Prometheus metrics:** `http://127.0.0.1:9142/metrics`
 - **Access log:** see [Access log](#access-log).
-- **Rate limiting:** a source crossing the limit logs `rate-limit enter src=… client=… host=… rate=…/60s` once; its first request back under the limit logs `rate-limit exit …`. A source that just stops sending logs no exit — its `Abuse` entry silently expires after 30 min idle. Rejected requests: `haproxy_backend_http_responses_total{proxy="rate_limited",code="4xx"}`. Currently limited sources: `show table Abuse data.gpt0 gt 0` on the admin socket. With `haproxy_lb_access_log` on, these lines are JSON with `rl_event`, `src`, `client`, `req_host` and `rl_rate` fields instead.
+- **Rate limiting:** a source crossing the limit logs `rate-limit enter src=… client=… host=… rate=…/60s` once; its first request back under the limit logs `rate-limit exit …`. A source that just stops sending logs no exit — its `Abuse` entry silently expires after 30 min idle. Rejected requests: `haproxy_backend_http_responses_total{proxy="rate_limited",code="4xx"}`. Currently limited sources: `show table Abuse data.gpt0 gt 0` on the admin socket. Crossings are also counted as `haproxy_rate_limit_events_total{event="enter|exit", req_host}` (Vector, from the access log; needs `haproxy_lb_access_log`). With `haproxy_lb_access_log` on, these lines are JSON with `rl_event`, `src`, `client`, `req_host` and `rl_rate` fields instead.
 
 ### Access log
 

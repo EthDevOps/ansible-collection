@@ -35,3 +35,16 @@ transforms:
       }
       # Stream field: the LB's hostname, not the syslog peer (127.0.0.1).
       .host = get_hostname!()
+  # Rate-limit enter/exit events as a counter. Named metrics_* so the vector
+  # role's metrics_with_labels picks it up and ships it with the other metrics.
+  # Per host only: client IPs stay in the logs.
+  metrics_haproxy_rate_limit:
+    type: log_to_metric
+    inputs: [logs_haproxy_access]
+    metrics:
+      - type: counter
+        field: rl_event
+        name: haproxy_rate_limit_events_total
+        tags:
+          event: "{{ rl_event }}"
+          req_host: "{{ req_host }}"
