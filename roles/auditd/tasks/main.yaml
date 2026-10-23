@@ -118,6 +118,29 @@
     group: root
     mode: "0640"
   when: auditd_enabled
+# The stock unit runs augenrules inside ProtectHome=true, where /home and
+# /root are empty: a watch on /home/<user>/.ssh fails with ENOENT, which
+# stops the load and drops every rule after it. read-only keeps the real
+# paths visible to the loader.
+- name: Create auditd systemd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/auditd.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: auditd_enabled
+- name: Let augenrules see home directories
+  ansible.builtin.copy:
+    content: |
+      [Service]
+      ProtectHome=read-only
+    dest: /etc/systemd/system/auditd.service.d/protect-home.conf
+    owner: root
+    group: root
+    mode: "0644"
+  register: auditd_protect_home_dropin
+  when: auditd_enabled
 # augenrules compiles rules.d into /etc/audit/audit.rules when auditd starts,
 # so a difference between the two means our rules were never loaded. Unlike
 # the template's changed flag, this also catches a run that died between
@@ -142,7 +165,8 @@
 # opening a logging gap while the old rules are still active in the kernel.
 # The running daemon is left alone; the new rules apply on the next reboot.
 # A fresh install starts auditd unlocked with the stock ruleset, so it is
-# restarted to load ours.
+# restarted to load ours. A changed drop-in also restarts it: augenrules
+# --check reports no change on hosts where the sandboxed load already failed.
 - name: Warn that audit rule changes require a reboot
   ansible.builtin.debug:
     msg: >-
@@ -158,6 +182,7 @@
     name: auditd
     state: started
     enabled: true
+    daemon_reload: true
   when: auditd_enabled
 - name: Restart auditd to load changed audit rules
   ansible.builtin.systemd:
@@ -165,7 +190,7 @@
     state: restarted
   when:
     - auditd_enabled
-    - auditd_rules_pending
+    - auditd_rules_pending or auditd_protect_home_dropin.changed
     - not auditd_kernel_locked
 - name: Read active audit configuration
   ansible.builtin.command: auditctl -s
