@@ -23,6 +23,7 @@ Default variables are defined in [defaults/main.yaml](defaults/main.yaml).
 | `haproxy_lb_rate_limit_targets` | `[]` | List of `{name, domain}`. Requests to these domains (on `:80` and `:443`) are tracked per source IP in the `Abuse` stick table and answered with `429` once a source exceeds `haproxy_lb_rate_limit_per_min` requests in the last 60 s, counted across all listed domains. Empty = no limiting. |
 | `haproxy_lb_rate_limit_per_min` | `1500` | Per-source request threshold per 60 s for `haproxy_lb_rate_limit_targets`. |
 | `haproxy_lb_rate_limit_exclude` | `[]` | Source IPs/CIDRs (written to `/etc/haproxy/allowlist.acl`) that are never rate limited, e.g. an event venue's NAT address. |
+| `haproxy_lb_rate_limit_shadow` | `false` | Log-only mode for picking a limit: every domain is tracked and sources crossing `haproxy_lb_rate_limit_per_min` log `rate-limit enter`/`exit`, but nothing is rejected. `haproxy_lb_rate_limit_targets` is ignored while it is on. |
 
 #### HTTP vs HTTPS frontends
 
@@ -59,7 +60,7 @@ haproxy_lb_clusters:
       - web_tier
 ```
 
-Server IPs are resolved via `lb_hostvars[server]["primary_ip4"]`. Entries in `nodes` that are not in `lb_hostvars` are used as-is, so a literal IP works (e.g. `- 10.0.0.5`).
+Server IPs are resolved via `haproxy_lb_hostvars[server]["primary_ip4"]` (defaults to the play's `hostvars`). Entries in `nodes` that are not in `haproxy_lb_hostvars` are used as-is, so a literal IP works (e.g. `- 10.0.0.5`).
 
 ---
 
@@ -151,7 +152,6 @@ haproxy_lb_k8s_services:
 | `ethquokkaops.io/match-exact` | Optional. Use exact host matching instead of domain suffix |
 | `ethquokkaops.io/allow-subdomains` | Optional. Also match subdomains (e.g., `*.example.com`) |
 | `ethquokkaops.io/auth-group` | Optional. Require basic auth from specified group |
-| `ethquokkaops.io/internal-only` | Optional. Restrict to internal IPs (10.128.0.0/9) |
 | `ethquokkaops.io/use_cache` | Optional. Enable response caching (`"true"`) |
 | `ethquokkaops.io/sticky` | Optional. Enable sticky sessions (`"true"`) |
 | `ethquokkaops.io/ssl-backend` | Optional. Use HTTPS to backend |
@@ -159,7 +159,7 @@ haproxy_lb_k8s_services:
 | `ethquokkaops.io/max-conn` | Optional. Max connections per server (default: 500) |
 | `ethquokkaops.io/allow-http` | Optional. `"true"` exempts the service from the global HTTPS redirect (`haproxy_lb_force_https`) and routes plain HTTP requests to the same backend. |
 | `ethquokkaops.io/dontlog-normal` | Optional. `"true"` logs only responses with status ≥ 500 for this service when `haproxy_lb_access_log` is on. Set it on log and metrics ingest endpoints, whose traffic would otherwise feed back into the access log. |
-| `ethquokkaops.io/deny-paths` | Optional. Comma-separated public path prefixes rejected with a 403 at the edge (matched with `path_beg` after duplicate slashes are merged, before any `path` rewriting). Example: `"/api/auth/login"` |
+| `ethquokkaops.io/deny-paths` | Optional. Comma-separated public path prefixes rejected with a 403 at the edge (case-insensitive prefix match on the path after %-decoding, dropping `;params` and merging duplicate slashes, before any `path` rewriting; paths with `.`/`..` segments get a 400). Example: `"/api/auth/login"` |
 
 **Backend name format:** `{cluster}_{namespace}_{servicename}` (e.g., `prod_default_myservice`)
 
@@ -203,7 +203,7 @@ TCP passthrough for Kubernetes services. Configured via annotations on the same 
 
 | Annotation | Description |
 |------------|-------------|
-| `ethquokkaops.io/expose-tcp` | Required. Enables TCP exposure |
+| `ethquokkaops.io/expose-tcp` | Required. `"true"` enables TCP exposure; any other value (or absent) opens no listener |
 | `ethquokkaops.io/expose-on-port` | Required. External port to listen on |
 | `ethquokkaops.io/service-port` | Optional. Backend port (defaults to first service port) |
 | `ethquokkaops.io/max-conn` | Optional. Max connections per server (default: 30) |
@@ -252,15 +252,15 @@ backend tcp_colo-k8s-mgmt_wazuh-worker-1514
     server lb_wazuh-manager-worker-1 <pod-1 LB IP>:1514
 ```
 
-### 4. Domain Groups (via `lb_hostvars`)
+### 4. Domain Groups (via `haproxy_lb_hostvars`)
 
 Services defined in host variables that are grouped by domain for load balancing. Useful for distributing traffic across multiple hosts running the same service.
 
-Services are discovered from `lb_hostvars[host].services` where `custom_fields.expose_mode == "l7"`.
+Services are discovered from `haproxy_lb_hostvars[host].services` where `custom_fields.expose_mode == "l7"`.
 
 ```yaml
-# In host_vars or group_vars
-lb_hostvars:
+# Play/role var (defaults to the play's hostvars)
+haproxy_lb_hostvars:
   server1:
     primary_ip4: 10.0.0.1
     services:
@@ -271,7 +271,6 @@ lb_hostvars:
           expose_mode: l7
           expose_domain: "app.example.com"
           expose_auth: admin_users      # Optional, basic auth group
-          internal_only: "true"         # Optional, restrict to internal IPs
           balance_mode: backup          # Optional, primary/backup mode
           allow_http: "true"            # Optional, exempt from haproxy_lb_force_https redirect
 ```
@@ -307,7 +306,7 @@ haproxy_lb_warpgate_port: 443
 Services are selected by:
 
 - **K8s**: `ethquokkaops.io/warpgate-expose: "web"` together with `ethquokkaops.io/domain` (comma-separated). `ethquokkaops.io/allow-http: "true"` is respected.
-- **NetBox** (`lb_hostvars`): service `custom_fields.expose_mode: internal` together with a non-empty `expose_domain` (comma-separated). `custom_fields.allow_http: "true"` is respected.
+- **NetBox** (`haproxy_lb_hostvars`): service `custom_fields.expose_mode: internal` together with a non-empty `expose_domain` (comma-separated). `custom_fields.allow_http: "true"` is respected.
 
 HAProxy connects to Warpgate over HTTPS and, unless the gate domain below is set, passes the original Host header and SNI through unchanged. Warpgate's certificate won't match the requested host, so the backend uses `ssl verify none`. Warpgate itself chooses which service to forward to. Like all HTTP routing, this only applies when `haproxy_lb_sites` is non-empty.
 
@@ -467,7 +466,8 @@ _time:1h fe:https | stats by (src) count() hits | sort by (hits desc) | limit 20
 - HSTS enabled with 2-year max-age
 - TLS 1.2+ only with modern cipher suites
 - HTTP/2 and HTTP/1.1 ALPN support
-- Optional per-source request-rate limit for selected domains (`haproxy_lb_rate_limit_targets`)
+- Client-supplied `X-Forwarded-*`, `Forwarded`, `X-Real-IP`, `X-Client-IP`, `True-Client-IP`, `X-Original-URL`, `X-Rewrite-URL` and `Proxy` headers are dropped in the `http`/`https` frontends; backends get `X-Forwarded-For`/`Forwarded`/`X-Forwarded-Port`/`X-Forwarded-Proto` set by HAProxy only
+- Optional per-source request-rate limit for selected domains (`haproxy_lb_rate_limit_targets`), or log-only across all domains (`haproxy_lb_rate_limit_shadow`)
 
 ---
 

@@ -3,9 +3,14 @@
    haproxy_lb_rate_limit_exclude (allowlist.acl) are never tracked. gpt0 flags a
    source as limited so the enter/exit transitions are logged once each (see the
    rate_limit log-profile); limited requests go to the rate_limited backend so
-   its 429s are countable in Prometheus. #}
-{% if haproxy_lb_rate_limit_targets | length > 0 %}
+   its 429s are countable in Prometheus. haproxy_lb_rate_limit_shadow tracks and
+   logs every domain but rejects nothing, to find a safe limit first. #}
+{% if haproxy_lb_rate_limit_shadow or haproxy_lb_rate_limit_targets | length > 0 %}
+{% if haproxy_lb_rate_limit_shadow %}
+    acl rl_target always_true
+{% else %}
     acl rl_target req.hdr(host),field(1,:) -i {{ haproxy_lb_rate_limit_targets | map(attribute='domain') | join(' ') }}
+{% endif %}
     http-request track-sc0 src table Abuse if rl_target !{ src -f /etc/haproxy/allowlist.acl }
     acl rl_over sc_http_req_rate(0) gt {{ haproxy_lb_rate_limit_per_min }}
     acl rl_flagged sc_get_gpt0(0) gt 0
@@ -16,5 +21,7 @@
     http-request set-var(txn.rl_host) req.hdr(host),field(1,:) if { var(txn.rl_event) -m found }
     http-request set-var(txn.rl_rate) sc_http_req_rate(0) if { var(txn.rl_event) -m found }
     http-request do-log if { var(txn.rl_event) -m found }
+{% if not haproxy_lb_rate_limit_shadow %}
     use_backend rate_limited if rl_target rl_over
+{% endif %}
 {% endif %}

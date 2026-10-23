@@ -95,7 +95,7 @@
     src: files/{{ item }}.html
     dest: /etc/haproxy/errors/{{ item }}.http
     mode: "0644"
-- name: Set lb_hostvars equal to hostvars if not already set
+- name: Default haproxy_lb_hostvars to hostvars
   check_mode: false
   ansible.builtin.set_fact:
     haproxy_lb_hostvars: "{{ hostvars }}"

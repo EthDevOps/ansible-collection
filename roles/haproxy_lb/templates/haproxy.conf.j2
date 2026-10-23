@@ -101,7 +101,7 @@ frontend prometheus
    backend section below see the same populated dict. #}
 {% set domain_groups = {} %}
 {% if haproxy_lb_sites and haproxy_lb_sites|length > 0 %}
-{% for host, hostvars in lb_hostvars.items() %}
+{% for host, hostvars in haproxy_lb_hostvars.items() %}
 {% for svc in hostvars.services if svc.custom_fields.expose_mode is defined and svc.custom_fields.expose_mode == "l7" %}
 {% for domain in svc.custom_fields.expose_domain.split(',') | map('trim') | list %}
 {% if domain not in domain_groups %}
@@ -122,7 +122,7 @@ frontend prometheus
 {% endfor %}
 {% endfor %}
 {% endfor %}
-{% for host, hostvars in lb_hostvars.items() %}
+{% for host, hostvars in haproxy_lb_hostvars.items() %}
 {% for svc in hostvars.services if svc.custom_fields.expose_mode | default('') == "internal" and svc.custom_fields.expose_domain %}
 {% for domain in svc.custom_fields.expose_domain.split(',') | map('trim') | list %}
 {% set _ = warpgate_domains.append({'domain': domain, 'allow_http': svc.custom_fields.allow_http | default('') == "true"}) %}
@@ -137,6 +137,11 @@ frontend http
     bind [::]:80 v6only
     mode http
     {% include '_access_log.j2' %}
+
+    # Never trust client-supplied proxy headers: backends set their own
+    # X-Forwarded-*/Forwarded. Also drops IP headers apps may trust, path
+    # overrides (X-Original-URL/X-Rewrite-URL) and httpoxy (Proxy).
+    http-request del-header ^(x-forwarded-.*|forwarded|x-real-ip|x-client-ip|true-client-ip|x-original-url|x-rewrite-url|proxy)$ -m reg
 
     # Capture request URI for redirect preservation
     http-request capture path len 512
@@ -180,6 +185,11 @@ frontend https
     {% endif %}
     {% include '_access_log.j2' %}
 
+    # Never trust client-supplied proxy headers: backends set their own
+    # X-Forwarded-*/Forwarded. Also drops IP headers apps may trust, path
+    # overrides (X-Original-URL/X-Rewrite-URL) and httpoxy (Proxy).
+    http-request del-header ^(x-forwarded-.*|forwarded|x-real-ip|x-client-ip|true-client-ip|x-original-url|x-rewrite-url|proxy)$ -m reg
+
     # Capture request URI for redirect preservation
     http-request capture path len 512
     {% include '_rate_limit.j2' %}
@@ -201,7 +211,8 @@ frontend https
    specific pod. #}
 {% set tcp_groups = namespace(map={}, ungrouped=[]) %}
 {% for cluster in haproxy_lb_k8s_services %}
-{% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-tcp"] is defined %}
+{# expose-tcp must be truthy, not merely present, like expose-public. #}
+{% for svc in cluster.resources if svc.metadata.annotations["ethquokkaops.io/expose-tcp"] | default('false') | bool %}
 {% set group = svc.metadata.annotations.get("ethquokkaops.io/balance-group") %}
 {% if group %}
 {% set key = cluster.item ~ "__" ~ group %}
@@ -307,7 +318,7 @@ backend {{ site }}
     timeout queue 60s
 
     http-request set-header X-Forwarded-Port %[dst_port]
-    http-request add-header X-Forwarded-Proto https if { ssl_fc }
+    http-request set-header X-Forwarded-Proto %[ssl_fc,iif(https,http)]
 
     {% if haproxy_lb_sites[site].backend_mode | default("http") != "grpc" %}
     # Enable compression towards the client
@@ -350,9 +361,9 @@ backend {{ site }}
     {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodes"] is defined %}
     {% for server in haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodes %}
     {% if loop.first %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
+    server {{ server }} {{ haproxy_lb_hostvars[server]["primary_ip4"] if server in haproxy_lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
     {% else %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
+    server {{ server }} {{ haproxy_lb_hostvars[server]["primary_ip4"] if server in haproxy_lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
     {% endif %}
     {% endfor %}
     {% endif %}
@@ -360,9 +371,9 @@ backend {{ site }}
     {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodeGroup"] is defined %}
     {% for server in groups[haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroup] %}
     {% if loop.first %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
+    server {{ server }} {{ haproxy_lb_hostvars[server]["primary_ip4"] if server in haproxy_lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
     {% else %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
+    server {{ server }} {{ haproxy_lb_hostvars[server]["primary_ip4"] if server in haproxy_lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
     {% endif %}
     {% endfor %}
     {% endif %}
@@ -373,9 +384,9 @@ backend {{ site }}
         {% set target_servers = groups[first_group] | intersect(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroups[1:] | map('extract', groups) | list) %}
         {% for server in target_servers %}
         {% if loop.first %}
-        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
+        server {{ server }} {{ haproxy_lb_hostvars[server]["primary_ip4"] if server in haproxy_lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
         {% else %}
-        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
+        server {{ server }} {{ haproxy_lb_hostvars[server]["primary_ip4"] if server in haproxy_lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }} backup
         {% endif %}
         {% endfor %}
     {% endif %}
@@ -385,13 +396,13 @@ backend {{ site }}
 
     {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodes"] is defined %}
     {% for server in haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodes %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
+    server {{ server }} {{ haproxy_lb_hostvars[server]["primary_ip4"] if server in haproxy_lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
     {% endfor %}
     {% endif %}
 
     {% if haproxy_lb_clusters[haproxy_lb_sites[site].cluster]["nodeGroup"] is defined %}
     {% for server in groups[haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroup] %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
+    server {{ server }} {{ haproxy_lb_hostvars[server]["primary_ip4"] if server in haproxy_lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
     {% endfor %}
     {% endif %}
 
@@ -400,7 +411,7 @@ backend {{ site }}
         {% set first_group = haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroups[0] %}
         {% set target_servers = groups[first_group] | intersect(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].nodeGroups[1:] | map('extract', groups) | list) %}
         {% for server in target_servers %}
-        server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
+        server {{ server }} {{ haproxy_lb_hostvars[server]["primary_ip4"] if server in haproxy_lb_hostvars else server }}:{{ haproxy_lb_sites[site].port | default(haproxy_lb_clusters[haproxy_lb_sites[site].cluster].defaultPort | default('80')) }}
         {% endfor %}
     {% endif %}
 
@@ -458,7 +469,7 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_
     {% endif %}
 
     http-request set-header X-Forwarded-Port %[dst_port]
-    http-request add-header X-Forwarded-Proto https if { ssl_fc }
+    http-request set-header X-Forwarded-Proto %[ssl_fc,iif(https,http)]
 
     {% if svc.metadata.annotations["ethquokkaops.io/dontlog-normal"] | default('false') | bool %}
     # Log only server errors, e.g. for log/metrics ingest endpoints whose
@@ -468,10 +479,12 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_
 
     {% if svc.metadata.annotations["ethquokkaops.io/deny-paths"] is defined %}
     # Edge-deny the listed public path prefixes (before any path rewriting).
-    # Merge duplicate slashes first so /foo//bar can't slip past the prefix match
+    # Backends decode %XX, drop ;params and resolve dot segments before routing,
+    # so match the path normalized the same way and refuse dot segments outright
     # (normalize-uri would be the full fix but is still experimental in HAProxy 3.3).
-    http-request set-path %[path,regsub(//+,/,g)]
-    http-request return status 403 content-type text/plain lf-string "Forbidden" if { path_beg {{ svc.metadata.annotations["ethquokkaops.io/deny-paths"].split(',') | map('trim') | join(' ') }} }
+    http-request set-var(txn.deny_path) path,url_dec,regsub(;[^/]*,,g),regsub(//+,/,g)
+    http-request return status 400 content-type text/plain lf-string "Bad Request" if { var(txn.deny_path) -m reg (^|/)\.\.?(/|$) }
+    http-request return status 403 content-type text/plain lf-string "Forbidden" if { var(txn.deny_path) -m beg -i {{ svc.metadata.annotations["ethquokkaops.io/deny-paths"].split(',') | map('trim') | join(' ') }} }
     {% endif %}
 
     {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
@@ -526,7 +539,7 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     {% endif %}
 
     http-request set-header X-Forwarded-Port %[dst_port]
-    http-request add-header X-Forwarded-Proto https if { ssl_fc }
+    http-request set-header X-Forwarded-Proto %[ssl_fc,iif(https,http)]
 
     {% if svc.metadata.annotations["ethquokkaops.io/dontlog-normal"] | default('false') | bool %}
     # Log only server errors, e.g. for log/metrics ingest endpoints whose
@@ -536,10 +549,12 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
 
     {% if svc.metadata.annotations["ethquokkaops.io/deny-paths"] is defined %}
     # Edge-deny the listed public path prefixes (before any path rewriting).
-    # Merge duplicate slashes first so /foo//bar can't slip past the prefix match
+    # Backends decode %XX, drop ;params and resolve dot segments before routing,
+    # so match the path normalized the same way and refuse dot segments outright
     # (normalize-uri would be the full fix but is still experimental in HAProxy 3.3).
-    http-request set-path %[path,regsub(//+,/,g)]
-    http-request return status 403 content-type text/plain lf-string "Forbidden" if { path_beg {{ svc.metadata.annotations["ethquokkaops.io/deny-paths"].split(',') | map('trim') | join(' ') }} }
+    http-request set-var(txn.deny_path) path,url_dec,regsub(;[^/]*,,g),regsub(//+,/,g)
+    http-request return status 400 content-type text/plain lf-string "Bad Request" if { var(txn.deny_path) -m reg (^|/)\.\.?(/|$) }
+    http-request return status 403 content-type text/plain lf-string "Forbidden" if { var(txn.deny_path) -m beg -i {{ svc.metadata.annotations["ethquokkaops.io/deny-paths"].split(',') | map('trim') | join(' ') }} }
     {% endif %}
 
     {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
@@ -631,13 +646,13 @@ backend tcp_{{ tun }}
 
     {% if haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster]["nodes"] is defined %}
     {% for server in haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster].nodes %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_tunnels[tun].cluster_port }}
+    server {{ server }} {{ haproxy_lb_hostvars[server]["primary_ip4"] if server in haproxy_lb_hostvars else server }}:{{ haproxy_lb_tunnels[tun].cluster_port }}
     {% endfor %}
     {% endif %}
 
     {% if haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster]["nodeGroup"] is defined %}
     {% for server in groups[haproxy_lb_clusters[haproxy_lb_tunnels[tun].cluster].nodeGroup] %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_tunnels[tun].cluster_port }}
+    server {{ server }} {{ haproxy_lb_hostvars[server]["primary_ip4"] if server in haproxy_lb_hostvars else server }}:{{ haproxy_lb_tunnels[tun].cluster_port }}
     {% endfor %}
     {% endif %}
 
@@ -660,7 +675,7 @@ backend tcp_{{ tun }}
     {% endif %}
     # FINAL: {{ target_servers | join(', ')}}
     {% for server in target_servers %}
-    server {{ server }} {{ lb_hostvars[server]["primary_ip4"] if server in lb_hostvars else server }}:{{ haproxy_lb_tunnels[tun].cluster_port }}
+    server {{ server }} {{ haproxy_lb_hostvars[server]["primary_ip4"] if server in haproxy_lb_hostvars else server }}:{{ haproxy_lb_tunnels[tun].cluster_port }}
     {% endfor %}
     {% endif %}
 
@@ -681,7 +696,7 @@ backend {{ backend_name }}
     timeout queue 60s
 
     http-request set-header X-Forwarded-Port %[dst_port]
-    http-request add-header X-Forwarded-Proto https if { ssl_fc }
+    http-request set-header X-Forwarded-Proto %[ssl_fc,iif(https,http)]
 
     {% if services[0].svc.custom_fields.backend_mode | default("http") != "grpc" %}
     # Enable compression towards the client
@@ -733,7 +748,7 @@ backend warpgate
     timeout queue 60s
 
     http-request set-header X-Forwarded-Port %[dst_port]
-    http-request add-header X-Forwarded-Proto https if { ssl_fc }
+    http-request set-header X-Forwarded-Proto %[ssl_fc,iif(https,http)]
 
     default-server check fall 3 rise 2 ssl verify none sni req.hdr(host) alpn h2,http/1.1
     {% if haproxy_lb_backend_extra_config is defined and 'warpgate' in haproxy_lb_backend_extra_config %}

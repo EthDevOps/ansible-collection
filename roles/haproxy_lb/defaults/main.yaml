@@ -6,11 +6,18 @@ haproxy_lb_auth: []
 haproxy_lb_rate_limit_per_min: 1500
 haproxy_lb_rate_limit_targets: []
 haproxy_lb_rate_limit_exclude: []
+# Log-only mode: track every domain and log rate-limit enter/exit events above
+# haproxy_lb_rate_limit_per_min, but reject nothing (targets are ignored).
+haproxy_lb_rate_limit_shadow: false
 haproxy_lb_clusters: []
 haproxy_lb_sites: []
 haproxy_lb_tunnels: []
 haproxy_lb_redirects: []
 haproxy_lb_k8s_services: []
+# Host name -> host vars (needs primary_ip4; NetBox services for domain groups
+# and Warpgate). Unset = the play's hostvars (set in tasks, not here, so the
+# fallback is evaluated once).
+# haproxy_lb_hostvars: {}
 # Custom backend configuration snippets for HAProxy backends
 # Keyed by backend name, value is raw HAProxy config to inject
 # Supported backend types and their keys:
