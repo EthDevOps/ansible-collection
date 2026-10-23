@@ -34,6 +34,11 @@
 ## Every syscall rule has a b32 twin: 64-bit rules do not see syscalls made
 ## through the 32-bit ABI. Twins sit right after their b64 rule so that a
 ## rejected line drops the following keys and trips the role's key check.
+##
+## wazuh-syscheckd binds a 16-byte socket on every FIM event: ~800k
+## SYSCALL+PROCTITLE lines/h fleet-wide (46% of the audit tier, Oct 2026).
+## First match wins, so the never rule must precede the nbind rule.
+-a never,exit -F arch=b64 -S bind -F exe=/var/ossec/bin/wazuh-syscheckd
 -a always,exit -F arch=b64 -S bind -F a2>=16 -k nbind
 -a always,exit -F arch=b32 -S bind -F a2>=16 -k nbind
 
