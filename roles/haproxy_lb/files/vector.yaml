@@ -23,7 +23,7 @@ transforms:
       if err == null && is_object(parsed) {
         . = merge(., object!(parsed))
         if exists(.rl_event) {
-          .message = "rate-limit " + (to_string(.rl_event) ?? "-") + " src=" + (to_string(.src) ?? "-") + " host=" + (to_string(.req_host) ?? "-") + " rate=" + (to_string(.rl_rate) ?? "-") + "/60s"
+          .message = "rate-limit " + (to_string(.rl_event) ?? "-") + " client=" + (to_string(.client) ?? "-") + " host=" + (to_string(.req_host) ?? "-") + " rate=" + (to_string(.rl_rate) ?? "-") + "/60s"
         } else {
           .message = (to_string(.method) ?? "-") + " " + (to_string(.req_host) ?? "-") + (to_string(.path) ?? "") + " " + (to_string(.status) ?? "-") + " " + (to_string(.term) ?? "-")
           term = to_string(.term) ?? "--"

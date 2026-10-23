@@ -9,6 +9,9 @@ haproxy_lb_rate_limit_exclude: []
 # Log-only mode: track every domain and log rate-limit enter/exit events above
 # haproxy_lb_rate_limit_per_min, but reject nothing (targets are ignored).
 haproxy_lb_rate_limit_shadow: false
+# Source IPs/CIDRs of proxies in front of the LBs (e.g. Cloudflare) whose
+# X-Forwarded-For is passed on; from everyone else it is stripped.
+haproxy_lb_trusted_proxies: []
 haproxy_lb_clusters: []
 haproxy_lb_sites: []
 haproxy_lb_tunnels: []

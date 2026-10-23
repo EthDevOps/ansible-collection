@@ -113,6 +113,12 @@
     src: templates/allowlist.acl.j2
     dest: /etc/haproxy/allowlist.acl
     mode: "0644"
+- name: Generate trusted proxies list
+  notify: "Reload haproxy"
+  ansible.builtin.template:
+    src: templates/trusted_proxies.acl.j2
+    dest: /etc/haproxy/trusted_proxies.acl
+    mode: "0644"
 - name: Verify proxy configs # noqa: no-handler
   ansible.builtin.command:
     cmd: haproxy -c -V -f /tmp/haproxy.cfg.new

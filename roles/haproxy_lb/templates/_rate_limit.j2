@@ -1,6 +1,8 @@
 {# Per-source request-rate limit for the domains in haproxy_lb_rate_limit_targets.
    Rates are counted in the Abuse table across all listed domains; sources in
-   haproxy_lb_rate_limit_exclude (allowlist.acl) are never tracked. gpt0 flags a
+   haproxy_lb_rate_limit_exclude (allowlist.acl) are never tracked. The key is
+   txn.client (set in haproxy.conf.j2): CF-Connecting-IP for requests from
+   haproxy_lb_trusted_proxies, else the source address. gpt0 flags a
    source as limited so the enter/exit transitions are logged once each (see the
    rate_limit log-profile); limited requests go to the rate_limited backend so
    its 429s are countable in Prometheus. haproxy_lb_rate_limit_shadow tracks and
@@ -11,7 +13,7 @@
 {% else %}
     acl rl_target req.hdr(host),field(1,:) -i {{ haproxy_lb_rate_limit_targets | map(attribute='domain') | join(' ') }}
 {% endif %}
-    http-request track-sc0 src table Abuse if rl_target !{ src -f /etc/haproxy/allowlist.acl }
+    http-request track-sc0 var(txn.client) table Abuse if rl_target !{ var(txn.client) -m ip -f /etc/haproxy/allowlist.acl }
     acl rl_over sc_http_req_rate(0) gt {{ haproxy_lb_rate_limit_per_min }}
     acl rl_flagged sc_get_gpt0(0) gt 0
     http-request set-var(txn.rl_event) str(enter) if rl_target rl_over !rl_flagged

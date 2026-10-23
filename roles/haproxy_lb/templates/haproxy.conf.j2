@@ -41,14 +41,14 @@ global
 # Format for the rate-limit enter/exit lines emitted by do-log in
 # _rate_limit.j2; all other log lines keep the default format.
 log-profile rate_limit
-    on http-req format "rate-limit %[var(txn.rl_event)] src=%ci host=%[var(txn.rl_host)] rate=%[var(txn.rl_rate)]/60s"
+    on http-req format "rate-limit %[var(txn.rl_event)] src=%ci client=%[var(txn.client)] host=%[var(txn.rl_host)] rate=%[var(txn.rl_rate)]/60s"
 
 {% if haproxy_lb_access_log %}
 # JSON access log sent to Vector (_access_log.j2). The http-req step is the
 # rate-limit enter/exit do-log; Vector keys on rl_event to keep it long-term.
 log-profile access
-    on http-req format "%{+json}o %(rl_event)[var(txn.rl_event)] %(src)ci %(req_host)[var(txn.rl_host)] %(rl_rate)[var(txn.rl_rate)]"
-    on any format "%{+json}o %(src)ci %(src_port)cp %(fe)ft %(be)b %(srv)s %(method)HM %(req_host)[var(txn.log_host)] %(path)HPO %(query)HQ %(proto)HV %(status)ST %(term)ts %(Tt)Tt %(Tr)Tr %(Tw)Tw %(Tc)Tc %(bytes_out)B %(bytes_in)U %(retries)rc %(tls)sslv"
+    on http-req format "%{+json}o %(rl_event)[var(txn.rl_event)] %(src)ci %(client)[var(txn.client)] %(req_host)[var(txn.rl_host)] %(rl_rate)[var(txn.rl_rate)]"
+    on any format "%{+json}o %(src)ci %(src_port)cp %(client)[var(txn.client)] %(fe)ft %(be)b %(srv)s %(method)HM %(req_host)[var(txn.log_host)] %(path)HPO %(query)HQ %(proto)HV %(status)ST %(term)ts %(Tt)Tt %(Tr)Tr %(Tw)Tw %(Tc)Tc %(bytes_out)B %(bytes_in)U %(retries)rc %(tls)sslv"
 {% endif %}
 
 defaults
@@ -141,7 +141,17 @@ frontend http
     # Never trust client-supplied proxy headers: backends set their own
     # X-Forwarded-*/Forwarded. Also drops IP headers apps may trust, path
     # overrides (X-Original-URL/X-Rewrite-URL) and httpoxy (Proxy).
+    # Exception: a single X-Forwarded-For line from a trusted proxy
+    # (haproxy_lb_trusted_proxies, e.g. Cloudflare) is kept, so the backend
+    # still sees the client chain; option forwardfor appends the proxy's IP.
+    acl via_trusted_proxy src -f /etc/haproxy/trusted_proxies.acl
+    http-request set-var(txn.trusted_xff) req.fhdr(x-forwarded-for) if via_trusted_proxy { req.fhdr_cnt(x-forwarded-for) eq 1 }
     http-request del-header ^(x-forwarded-.*|forwarded|x-real-ip|x-client-ip|true-client-ip|x-original-url|x-rewrite-url|proxy)$ -m reg
+    http-request set-header X-Forwarded-For %[var(txn.trusted_xff)] if { var(txn.trusted_xff) -m found }
+    # Real client for rate limiting and logs: CF-Connecting-IP behind a trusted
+    # proxy (an unparsable value keeps the source), else the source.
+    http-request set-var(txn.client) src
+    http-request set-var(txn.client) req.hdr(cf-connecting-ip),ipmask(32,128) if via_trusted_proxy { req.hdr(cf-connecting-ip) -m found }
 
     # Capture request URI for redirect preservation
     http-request capture path len 512
@@ -188,7 +198,17 @@ frontend https
     # Never trust client-supplied proxy headers: backends set their own
     # X-Forwarded-*/Forwarded. Also drops IP headers apps may trust, path
     # overrides (X-Original-URL/X-Rewrite-URL) and httpoxy (Proxy).
+    # Exception: a single X-Forwarded-For line from a trusted proxy
+    # (haproxy_lb_trusted_proxies, e.g. Cloudflare) is kept, so the backend
+    # still sees the client chain; option forwardfor appends the proxy's IP.
+    acl via_trusted_proxy src -f /etc/haproxy/trusted_proxies.acl
+    http-request set-var(txn.trusted_xff) req.fhdr(x-forwarded-for) if via_trusted_proxy { req.fhdr_cnt(x-forwarded-for) eq 1 }
     http-request del-header ^(x-forwarded-.*|forwarded|x-real-ip|x-client-ip|true-client-ip|x-original-url|x-rewrite-url|proxy)$ -m reg
+    http-request set-header X-Forwarded-For %[var(txn.trusted_xff)] if { var(txn.trusted_xff) -m found }
+    # Real client for rate limiting and logs: CF-Connecting-IP behind a trusted
+    # proxy (an unparsable value keeps the source), else the source.
+    http-request set-var(txn.client) src
+    http-request set-var(txn.client) req.hdr(cf-connecting-ip),ipmask(32,128) if via_trusted_proxy { req.hdr(cf-connecting-ip) -m found }
 
     # Capture request URI for redirect preservation
     http-request capture path len 512
@@ -272,7 +292,8 @@ frontend fe_{{ g.cluster }}_{{ g.group }}
 ############
 
 backend Abuse
-    stick-table type ip size 100K expire 30m store gpt0,http_req_rate(60s)
+    # ipv6 keys hold IPv4 too (as ::ffff:a.b.c.d); type ip silently skipped IPv6 clients.
+    stick-table type ipv6 size 100K expire 30m store gpt0,http_req_rate(60s)
 
 {% if haproxy_lb_rate_limit_targets | length > 0 %}
 backend rate_limited
