@@ -1,7 +1,7 @@
 #jinja2: lstrip_blocks:True
 #jinja2: trim_blocks:True
 global
-    log /dev/log    local0
+    log /dev/log    profile rate_limit local0
     log /dev/log    local1 notice
     chroot /var/lib/haproxy
     stats socket /run/haproxy/admin.sock mode 660 expose-fd listeners level admin
@@ -37,6 +37,19 @@ global
     # QUIC DDoS protection: force Retry token exchange above threshold
     tune.quic.retry-threshold 100
     {% endif %}
+
+# Format for the rate-limit enter/exit lines emitted by do-log in
+# _rate_limit.j2; all other log lines keep the default format.
+log-profile rate_limit
+    on http-req format "rate-limit %[var(txn.rl_event)] src=%ci host=%[var(txn.rl_host)] rate=%[var(txn.rl_rate)]/60s"
+
+{% if haproxy_lb_access_log %}
+# JSON access log sent to Vector (_access_log.j2). The http-req step is the
+# rate-limit enter/exit do-log; Vector keys on rl_event to keep it long-term.
+log-profile access
+    on http-req format "%{+json}o %(rl_event)[var(txn.rl_event)] %(src)ci %(req_host)[var(txn.rl_host)] %(rl_rate)[var(txn.rl_rate)]"
+    on any format "%{+json}o %(src)ci %(src_port)cp %(fe)ft %(be)b %(srv)s %(method)HM %(req_host)[var(txn.log_host)] %(path)HPO %(query)HQ %(proto)HV %(status)ST %(term)ts %(Tt)Tt %(Tr)Tr %(Tw)Tw %(Tc)Tc %(bytes_out)B %(bytes_in)U %(retries)rc %(tls)sslv"
+{% endif %}
 
 defaults
     log     global
@@ -123,12 +136,7 @@ frontend http
     bind *:80
     bind [::]:80 v6only
     mode http
-
-    {% if haproxy_lb_log_http_requests | default(true) %}
-    # Discovery logging: log every request hitting :80 so we can see which
-    # clients still use HTTP before enabling haproxy_lb_force_https.
-    no option dontlog-normal
-    {% endif %}
+    {% include '_access_log.j2' %}
 
     # Capture request URI for redirect preservation
     http-request capture path len 512
@@ -170,6 +178,7 @@ frontend https
     # Advertise HTTP/3 availability to browsers
     http-response set-header Alt-Svc "h3=\":443\"; ma=86400"
     {% endif %}
+    {% include '_access_log.j2' %}
 
     # Capture request URI for redirect preservation
     http-request capture path len 512
@@ -252,7 +261,12 @@ frontend fe_{{ g.cluster }}_{{ g.group }}
 ############
 
 backend Abuse
-    stick-table type ip size 100K expire 30m store gpc0,http_req_rate(60s)
+    stick-table type ip size 100K expire 30m store gpt0,http_req_rate(60s)
+
+{% if haproxy_lb_rate_limit_targets | length > 0 %}
+backend rate_limited
+    http-request deny deny_status 429
+{% endif %}
 
 backend default
     balance roundrobin
@@ -446,6 +460,12 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_
     http-request set-header X-Forwarded-Port %[dst_port]
     http-request add-header X-Forwarded-Proto https if { ssl_fc }
 
+    {% if svc.metadata.annotations["ethquokkaops.io/dontlog-normal"] | default('false') | bool %}
+    # Log only server errors, e.g. for log/metrics ingest endpoints whose
+    # traffic would otherwise feed back into the access log.
+    http-after-response set-log-level silent if { status lt 500 }
+    {% endif %}
+
     {% if svc.metadata.annotations["ethquokkaops.io/deny-paths"] is defined %}
     # Edge-deny the listed public path prefixes (before any path rewriting).
     # Merge duplicate slashes first so /foo//bar can't slip past the prefix match
@@ -507,6 +527,12 @@ backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
 
     http-request set-header X-Forwarded-Port %[dst_port]
     http-request add-header X-Forwarded-Proto https if { ssl_fc }
+
+    {% if svc.metadata.annotations["ethquokkaops.io/dontlog-normal"] | default('false') | bool %}
+    # Log only server errors, e.g. for log/metrics ingest endpoints whose
+    # traffic would otherwise feed back into the access log.
+    http-after-response set-log-level silent if { status lt 500 }
+    {% endif %}
 
     {% if svc.metadata.annotations["ethquokkaops.io/deny-paths"] is defined %}
     # Edge-deny the listed public path prefixes (before any path rewriting).

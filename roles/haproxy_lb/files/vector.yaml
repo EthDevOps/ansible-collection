@@ -4,3 +4,34 @@ sources:
     type: prometheus_scrape
     endpoints:
       - http://127.0.0.1:9142/metrics?extra-counters=on
+  # JSON access log from the http/https frontends (haproxy_lb_access_log).
+  # Not named logs_* so only the parsed transform below feeds logs_with_labels.
+  haproxy_access_raw:
+    type: syslog
+    mode: udp
+    address: 127.0.0.1:5140
+    max_length: 16384
+transforms:
+  # Mirrors HAProxy's dontlog-normal: 5xx and termination states other than
+  # -- / L* (client/server aborts, timeouts, denies) are errors and stay in the
+  # main tier, as do rate-limit events; normal requests go to the 1d tier.
+  logs_haproxy_access:
+    type: remap
+    inputs: [haproxy_access_raw]
+    source: |-
+      parsed, err = parse_json(.message)
+      if err == null && is_object(parsed) {
+        . = merge(., object!(parsed))
+        if exists(.rl_event) {
+          .message = "rate-limit " + (to_string(.rl_event) ?? "-") + " src=" + (to_string(.src) ?? "-") + " host=" + (to_string(.req_host) ?? "-") + " rate=" + (to_string(.rl_rate) ?? "-") + "/60s"
+        } else {
+          .message = (to_string(.method) ?? "-") + " " + (to_string(.req_host) ?? "-") + (to_string(.path) ?? "") + " " + (to_string(.status) ?? "-") + " " + (to_string(.term) ?? "-")
+          term = to_string(.term) ?? "--"
+          is_error = (to_int(.status) ?? 0) >= 500 || !includes(["-", "L"], slice(term, 0, 1) ?? "-")
+          if !is_error {
+            .log_tier = "short"
+          }
+        }
+      }
+      # Stream field: the LB's hostname, not the syslog peer (127.0.0.1).
+      .host = get_hostname!()

@@ -30,10 +30,11 @@ haproxy_lb_cache_enabled: false
 # Leave off until you have observed HTTP traffic logs to know which services
 # need the override.
 haproxy_lb_force_https: false
-# When true, the :80 frontend logs every request (overrides the global
-# `dontlog-normal`). Used to discover which clients are still hitting HTTP
-# before enabling haproxy_lb_force_https.
-haproxy_lb_log_http_requests: true
+# When true, the http/https frontends log every request as JSON to the local
+# Vector (UDP 127.0.0.1:5140) instead of journald; Vector ships normal requests
+# to the 1d log tier. K8s services can opt out of normal-request logging with
+# ethquokkaops.io/dontlog-normal: "true".
+haproxy_lb_access_log: false
 # When set, a single `warpgate` backend (HTTPS, verify none) is generated and
 # services opted in via discovery are routed to it:
 #   - K8s: ethquokkaops.io/warpgate-expose: "web" + ethquokkaops.io/domain

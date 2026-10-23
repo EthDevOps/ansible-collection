@@ -1,0 +1,10 @@
+{# Full access log for the http/https frontends: every request goes as JSON
+   (access log-profile) over local UDP to Vector, bypassing journald and its
+   rate limit. Vector sends normal requests to the 1d tier and errors plus
+   rate-limit events to the main tier (files/vector.yaml). #}
+{% if haproxy_lb_access_log %}
+    no log
+    log 127.0.0.1:5140 len 8192 format rfc5424 profile access local0
+    no option dontlog-normal
+    http-request set-var(txn.log_host) req.hdr(host),field(1,:),lower
+{% endif %}

@@ -54,11 +54,13 @@ transforms:
       # debug/noisy spam -> 1d tier:
       #   - journald debug level (PRIORITY 7)
       #   - any message containing "debug" (case-insensitive)
+      #   - anything a producer tagged log_tier=short (e.g. haproxy_lb access log)
       - name: debug
         condition:
           type: vrl
           source: |
             .PRIORITY == "7" ||
+              .log_tier == "short" ||
               match(string(.message) ?? "", r'(?i)debug')
 
 sinks:

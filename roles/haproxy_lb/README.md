@@ -18,8 +18,8 @@ Default variables are defined in [defaults/main.yaml](defaults/main.yaml).
 | `haproxy_lb_sites_insecure` | `false` | If `true`, disables HTTPS binding on port 443 |
 | `haproxy_lb_stats_user` | `user` | Username for HAProxy stats page |
 | `haproxy_lb_stats_password` | `somepassword` | Password for HAProxy stats page |
-| `haproxy_lb_force_https` | `false` | If `true`, the `:80` frontend redirects HTTP→HTTPS (301) for any service that does not set `allow_http`. Leave off until you've observed which clients still need plain HTTP (see `haproxy_lb_log_http_requests`). |
-| `haproxy_lb_log_http_requests` | `true` | If `true`, the `:80` frontend logs every request (overrides the global `dontlog-normal`). Use during the discovery phase to inventory HTTP clients before flipping `haproxy_lb_force_https` on. |
+| `haproxy_lb_force_https` | `false` | If `true`, the `:80` frontend redirects HTTP→HTTPS (301) for any service that does not set `allow_http`. Leave off until you've observed which clients still need plain HTTP (see `haproxy_lb_access_log`). |
+| `haproxy_lb_access_log` | `false` | If `true`, the `http`/`https` frontends log every request as JSON to the local Vector (UDP `127.0.0.1:5140`) instead of journald. Vector ships normal requests to the 1d log tier and errors (5xx, or a termination state other than `--`/`L*`) plus rate-limit events to the main tier. See [Access log](#access-log). |
 | `haproxy_lb_rate_limit_targets` | `[]` | List of `{name, domain}`. Requests to these domains (on `:80` and `:443`) are tracked per source IP in the `Abuse` stick table and answered with `429` once a source exceeds `haproxy_lb_rate_limit_per_min` requests in the last 60 s, counted across all listed domains. Empty = no limiting. |
 | `haproxy_lb_rate_limit_per_min` | `1500` | Per-source request threshold per 60 s for `haproxy_lb_rate_limit_targets`. |
 | `haproxy_lb_rate_limit_exclude` | `[]` | Source IPs/CIDRs (written to `/etc/haproxy/allowlist.acl`) that are never rate limited, e.g. an event venue's NAT address. |
@@ -158,6 +158,7 @@ haproxy_lb_k8s_services:
 | `ethquokkaops.io/http2-backend` | Optional. Enable HTTP/2 to backend |
 | `ethquokkaops.io/max-conn` | Optional. Max connections per server (default: 500) |
 | `ethquokkaops.io/allow-http` | Optional. `"true"` exempts the service from the global HTTPS redirect (`haproxy_lb_force_https`) and routes plain HTTP requests to the same backend. |
+| `ethquokkaops.io/dontlog-normal` | Optional. `"true"` logs only responses with status ≥ 500 for this service when `haproxy_lb_access_log` is on. Set it on log and metrics ingest endpoints, whose traffic would otherwise feed back into the access log. |
 | `ethquokkaops.io/deny-paths` | Optional. Comma-separated public path prefixes rejected with a 403 at the edge (matched with `path_beg` after duplicate slashes are merged, before any `path` rewriting). Example: `"/api/auth/login"` |
 
 **Backend name format:** `{cluster}_{namespace}_{servicename}` (e.g., `prod_default_myservice`)
@@ -448,6 +449,18 @@ All HTTP backends have a 2-hour tunnel timeout for WebSocket connections.
 
 - **Stats page:** `http://127.0.0.1:32700/` (requires auth)
 - **Prometheus metrics:** `http://127.0.0.1:9142/metrics`
+- **Access log:** see [Access log](#access-log).
+- **Rate limiting:** a source crossing the limit logs `rate-limit enter src=… host=… rate=…/60s` once; its first request back under the limit logs `rate-limit exit …`. A source that just stops sending logs no exit — its `Abuse` entry silently expires after 30 min idle. Rejected requests: `haproxy_backend_http_responses_total{proxy="rate_limited",code="4xx"}`. Currently limited sources: `show table Abuse data.gpt0 gt 0` on the admin socket. With `haproxy_lb_access_log` on, these lines are JSON with `rl_event`, `src`, `req_host` and `rl_rate` fields instead.
+
+### Access log
+
+With `haproxy_lb_access_log: true` every HTTP(S) request is logged as one JSON line (fields `src`, `req_host`, `fe`, `be`, `srv`, `method`, `path`, `query`, `status`, `term`, `Tt`/`Tr`/`Tw`/`Tc`, `bytes_out`, `bytes_in`, `retries`, `tls`) over UDP to the Vector source in `files/vector.yaml`. Vector tags normal requests `log_tier=short`, which the `vector` role's tier routing sends to the 1d tier; errors and rate-limit events stay in the main tier. TCP frontends keep logging errors to journald.
+
+Example (requests per source over the last hour):
+
+```
+_time:1h fe:https | stats by (src) count() hits | sort by (hits desc) | limit 20
+```
 
 ### Security
 
