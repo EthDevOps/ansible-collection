@@ -242,7 +242,11 @@
       rules changed recently and auditd_immutable is true, the ruleset is
       locked and the new rules apply after a reboot.
   loop: "{{ auditd_expected_keys | unique }}"
-  when: auditd_enabled
+  # Locked with pending rules is already warned about above and only a
+  # reboot fixes it; augenrules --check keeps reporting it until then.
+  when:
+    - auditd_enabled
+    - not (auditd_kernel_locked and auditd_rules_pending)
 # The kernel flag is not managed by auditd: a fresh daemon comes up with
 # the flag at 1 (local_events) and only a locked (2) state is preserved
 # across restarts. Locking happens here, after the rules are loaded,
