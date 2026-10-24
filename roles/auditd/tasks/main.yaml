@@ -52,6 +52,24 @@
          | selectattr('stat.exists')
          | map(attribute='stat.path') | list }}
   when: auditd_enabled
+# A watch on a file that does not exist yet is fine as long as its parent
+# directory does, so only the directories are checked.
+- name: Check which flag report directories exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: >-
+    {{ (auditd_flag_report_dirs
+        + (auditd_ssh_key_dirs | map('regex_replace', '/\\.ssh$', '') | list))
+       | unique }}
+  register: auditd_flag_report_dirs_stat
+  when: auditd_enabled
+- name: Set fact for existing flag report directories
+  ansible.builtin.set_fact:
+    auditd_flag_report_dirs_existing: >-
+      {{ auditd_flag_report_dirs_stat.results
+         | selectattr('stat.exists')
+         | map(attribute='stat.path') | list }}
+  when: auditd_enabled
 - name: Set fact for effective audit watches
   ansible.builtin.set_fact:
     auditd_watches_effective: >-
@@ -91,6 +109,7 @@
     auditd_expected_keys: >-
       {{ (auditd_watches_existing | map(attribute='key') | list)
          + (['sshkeys'] if auditd_ssh_key_dirs_existing | length > 0 else [])
+         + (['flagreport'] if auditd_flag_report_dirs_existing | length > 0 else [])
          + ['nbind', 'acctmgmt', 'modload', 'ptrace', 'time'] }}
   when: auditd_enabled
 - name: Ensure audit log directory exists

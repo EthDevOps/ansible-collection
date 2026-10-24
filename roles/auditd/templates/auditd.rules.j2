@@ -11,6 +11,13 @@
 --loginuid-immutable
 {% endif %}
 
+## Creation of flag_report.txt (the bootstrap flag.txt canary asks intruders
+## to write one). Watch rules are first-match, so these must precede the
+## broader /root watch below or the event would carry key=root instead.
+{% for dir in auditd_flag_report_dirs_existing %}
+-w {{ dir }}/flag_report.txt -p wa -k flagreport
+{% endfor %}
+
 ## /etc and its high-signal files (dedicated keys so the central alerts can
 ## tell them apart from the bulk /etc watch)
 {% for watch in auditd_watches_existing %}

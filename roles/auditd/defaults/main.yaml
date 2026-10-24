@@ -26,6 +26,15 @@ auditd_space_left_action: ROTATE
 # every real user account that is auto-detected from /etc/passwd. Entries
 # are expanded to <home>/.ssh at runtime.
 auditd_ssh_user_homes: []
+# Directories in which creating a flag_report.txt is alerted on (key
+# flagreport), on top of every home from the SSH key detection above.
+# flag_report.txt is what the bootstrap role's flag.txt canary asks an
+# intruding agent to write.
+auditd_flag_report_dirs:
+  - /root
+  - /tmp
+  - /var/tmp
+  - /dev/shm
 # Path prefixes under which /etc write events are dropped by the vector
 # transform before shipping (package-manager and DHCP churn). The
 # sensitive-file alerts match specific paths, so none of these is alertable.

@@ -81,3 +81,11 @@
   loop: "{{ bootstrap_additional_users }}"
   loop_control:
     label: "{{ item.name }}"
+- name: Drop flag.txt into root's and each bootstrapped user's home
+  ansible.builtin.copy:
+    src: flag.txt
+    dest: "{{ '/root' if item == 'root' else '/home/' ~ item }}/flag.txt"
+    owner: "{{ item }}"
+    group: "{{ item }}"
+    mode: '0644'
+  loop: "{{ (['root', bootstrap_default_user, 'devops', bootstrap_ssh_username] + bootstrap_additional_users | map(attribute='name') | list) | unique }}"

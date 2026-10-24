@@ -11,6 +11,7 @@ VictoriaLogs sink through the existing `vector` setup (drop-in config at
 | --- | --- |
 | `etc` | every write/attribute change anywhere under `/etc` |
 | `sudoers`, `acct`, `pam`, `sshcfg` | dedicated keys on sudoers, account files, PAM and sshd config |
+| `flagreport` | creation of `flag_report.txt` in any home (root + real users) or in `auditd_flag_report_dirs` (`/tmp`, `/var/tmp`, `/dev/shm` by default); the bootstrap role's `flag.txt` canary asks intruders to write it |
 | `sshkeys` | every `~/.ssh` directory (root + all real user accounts) |
 | `nbind` | `bind()` with addrlen >= 16, i.e. every AF_INET/AF_INET6 bind (AF_NETLINK and short AF_UNIX binds are skipped); the kernel's `SOCKADDR` record carries the bound address (normalised to `bind_addr`/`bind_port` by the vector transform) |
 | `acctmgmt` | execution of useradd/usermod/groupadd/groupmod/chpasswd/passwd |
