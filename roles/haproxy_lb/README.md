@@ -324,6 +324,12 @@ haproxy_lb_warpgate_gate_domain: eu.gate.ethdevops.io   # empty (default) = Host
 
 NetBox services are not rewritten.
 
+**Source bypass (`ethquokkaops.io/warpgate-bypass-src`).** A K8s service that sets both `warpgate-expose: "web"` and `expose-public: "true"` still goes through Warpgate by default. Set `warpgate-bypass-src` to a comma-separated list of CIDRs or IPs, and only requests from those sources go straight to the service. Use this for clients that can't do the Warpgate SSO flow, such as apps, API tokens and webhooks. Every other source falls through to `warpgate`.
+
+```yaml
+ethquokkaops.io/warpgate-bypass-src: "10.128.2.50/32, 10.200.0.0/24"
+```
+
 **Backend name format:** `warpgate`
 
 ---
