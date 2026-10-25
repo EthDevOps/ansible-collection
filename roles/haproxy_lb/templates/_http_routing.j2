@@ -138,12 +138,12 @@
    {% for svc in sorted_services %}
    {% if (not routing_filter_allow_http) or (svc.metadata.annotations["ethquokkaops.io/allow-http"] is defined and svc.metadata.annotations["ethquokkaops.io/allow-http"] == "true") %}
     # START K8s SITE: {{ cluster.item }} => {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
-    {# expose-public + warpgate-expose: web routes direct only for
+{# expose-public + warpgate-expose: web routes direct only for
        ethquokkaops.io/warpgate-bypass-src (comma-separated CIDRs); every other
        source falls through to the warpgate block below. #}
-    {% set wg_fronted = (haproxy_lb_warpgate_host | default('') | length > 0) and svc.metadata.annotations["ethquokkaops.io/warpgate-expose"] | default('') == "web" and svc.metadata.annotations["ethquokkaops.io/domain"] is defined %}
-    {% set wg_bypass = svc.metadata.annotations["ethquokkaops.io/warpgate-bypass-src"] | default('') %}
-    {% set wg_bypass = wg_bypass.split(',') | map('trim') | select | join(' ') %}
+{% set wg_fronted = (haproxy_lb_warpgate_host | default('') | length > 0) and svc.metadata.annotations["ethquokkaops.io/warpgate-expose"] | default('') == "web" and svc.metadata.annotations["ethquokkaops.io/domain"] is defined %}
+{% set wg_bypass = svc.metadata.annotations["ethquokkaops.io/warpgate-bypass-src"] | default('') %}
+{% set wg_bypass = wg_bypass.split(',') | map('trim') | select | join(' ') %}
     {% if svc.metadata.annotations["ethquokkaops.io/domain-port-map"] is defined %}
     {# Multi-port mapping: each port routes to a specific domain #}
     {% set port_mappings = svc.metadata.annotations["ethquokkaops.io/domain-port-map"].split(',') | map('trim') | list %}
@@ -165,10 +165,9 @@
     http-request cache-use global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
     http-response cache-store global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
     {% endif %}
-    {% if not wg_fronted or wg_bypass %}
+{% if not wg_fronted or wg_bypass %}
     use_backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}{% if wg_fronted %} { src {{ wg_bypass }} }{% endif %}
-
-    {% endif %}
+{% endif %}
 
     {% endfor %}
     {% else %}
@@ -213,10 +212,9 @@
     http-response cache-store global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}
     {% endif %}
 
-    {% if not wg_fronted or wg_bypass %}
+{% if not wg_fronted or wg_bypass %}
     use_backend {{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %} path_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}{% endif %}{% if wg_fronted %} { src {{ wg_bypass }} }{% endif %}
-
-    {% endif %}
+{% endif %}
 
     {% endif %}
     # END SITE: {{ svc.metadata.namespace }}_{{ svc.metadata.name }}
