@@ -153,6 +153,7 @@ haproxy_lb_k8s_services:
 | `ethquokkaops.io/match-exact` | Optional. Use exact host matching instead of domain suffix |
 | `ethquokkaops.io/allow-subdomains` | Optional. Also match subdomains (e.g., `*.example.com`) |
 | `ethquokkaops.io/auth-group` | Optional. Require basic auth from specified group |
+| `ethquokkaops.io/allow-src` | Optional. Comma-separated client CIDRs; requests from any other source address get a 403 at the edge. Matches the TCP source, so behind a trusted proxy (Cloudflare) it sees the proxy. Example: `"10.128.0.0/9"` |
 | `ethquokkaops.io/use_cache` | Optional. Enable response caching (`"true"`) |
 | `ethquokkaops.io/sticky` | Optional. Enable sticky sessions (`"true"`) |
 | `ethquokkaops.io/ssl-backend` | Optional. Use HTTPS to backend |

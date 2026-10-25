@@ -152,6 +152,9 @@
     {% if svc.metadata.annotations["ethquokkaops.io/auth-group"] is defined %}
     http-request auth if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} !{ http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) }
     {% endif %}
+    {% if svc.metadata.annotations["ethquokkaops.io/allow-src"] is defined %}
+    http-request deny deny_status 403 if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }} !{ src {{ svc.metadata.annotations["ethquokkaops.io/allow-src"].split(',') | map('trim') | join(' ') }} }
+    {% endif %}
     {% if (haproxy_lb_cache_enabled | default(false)) and svc.metadata.annotations["ethquokkaops.io/use_cache"] is defined and svc.metadata.annotations["ethquokkaops.io/use_cache"] == 'true' %}
     http-request cache-use global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
     http-response cache-store global_cache if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }}_{{ portname }}
@@ -183,6 +186,9 @@
     {% endfor %}
     {% if svc.metadata.annotations["ethquokkaops.io/auth-group"] is defined %}
     http-request auth if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} !{ http_auth({{ svc.metadata.annotations["ethquokkaops.io/auth-group"] }}) }
+    {% endif %}
+    {% if svc.metadata.annotations["ethquokkaops.io/allow-src"] is defined %}
+    http-request deny deny_status 403 if host_{{ cluster.item }}_{{ svc.metadata.namespace }}_{{ svc.metadata.name }} !{ src {{ svc.metadata.annotations["ethquokkaops.io/allow-src"].split(',') | map('trim') | join(' ') }} }
     {% endif %}
 
     {% if svc.metadata.annotations["ethquokkaops.io/path"] is defined %}
