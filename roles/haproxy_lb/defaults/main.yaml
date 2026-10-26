@@ -55,5 +55,7 @@ haproxy_lb_warpgate_port: 443
 # K8s service's real domain reach Warpgate as <warpgate-name>.<this> (except
 # /@warpgate/api/sso/), because Warpgate only keeps sessions on its
 # external_host and subdomains. The Warpgate target's external_host must be
-# that gate name. Empty = forward the real Host unchanged.
+# that gate name. The gate domain and its subdomains are routed to Warpgate
+# too, so the LBs need a certificate for <this> and *.<this>. Empty = forward
+# the real Host unchanged and don't route the gate domain.
 haproxy_lb_warpgate_gate_domain: ""

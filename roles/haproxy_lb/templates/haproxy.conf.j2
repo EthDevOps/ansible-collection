@@ -129,6 +129,11 @@ frontend prometheus
 {% endfor %}
 {% endfor %}
 {% endfor %}
+{# The gate itself (hdr_dom also matches every *.<gate domain> target). No
+   gate_host, so the Host rewrite in the warpgate backend leaves it alone. #}
+{% if haproxy_lb_warpgate_gate_domain | default('') | length > 0 %}
+{% set _ = warpgate_domains.append({'domain': haproxy_lb_warpgate_gate_domain, 'allow_http': false}) %}
+{% endif %}
 {% endif %}
 
 {% if haproxy_lb_sites and haproxy_lb_sites|length > 0 %}
